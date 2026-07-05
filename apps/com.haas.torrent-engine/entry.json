@@ -7,12 +7,17 @@
     "email": "a.zayats@outlook.com"
   },
   "category": "Networking",
-  "tags": ["bittorrent", "download", "vpn", "engine"],
+  "tags": [
+    "bittorrent",
+    "download",
+    "vpn",
+    "engine"
+  ],
   "display": {
     "summary": "VPN-isolated BitTorrent engine (MonoTorrent) with an HTTP/SSE control API for other Hosty apps to drive downloads over a dependency.",
     "icon": "assets/icon.svg",
     "screenshots": []
   },
   "releasesUrl": "feeds/com.haas.torrent-engine.json",
-  "signerIdentity": "github.com/alex-de-haas/hosty-catalog"
+  "signerIdentity": "github.com/alex-de-haas/torrent-engine"
 }
