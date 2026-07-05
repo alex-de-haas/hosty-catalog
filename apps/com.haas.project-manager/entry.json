@@ -1,0 +1,18 @@
+{
+  "id": "com.haas.project-manager",
+  "name": "Project Manager",
+  "publisher": {
+    "name": "Haas",
+    "url": "https://github.com/alex-de-haas",
+    "email": "a.zayats@outlook.com"
+  },
+  "category": "Productivity",
+  "tags": ["projects", "time-tracking", "release-planning", "azure-devops"],
+  "display": {
+    "summary": "Project planning, time tracking, release planning, and Azure DevOps coordination for Hosty users.",
+    "icon": "assets/icon.svg",
+    "screenshots": []
+  },
+  "releasesUrl": "feeds/com.haas.project-manager.json",
+  "signerIdentity": "github.com/alex-de-haas/hosty-catalog"
+}
