@@ -1,0 +1,23 @@
+{
+  "id": "com.haas.transcode-engine",
+  "name": "Transcode Engine",
+  "publisher": {
+    "name": "Haas",
+    "url": "https://github.com/alex-de-haas",
+    "email": "a.zayats@outlook.com"
+  },
+  "category": "Media",
+  "tags": [
+    "transcoding",
+    "ffmpeg",
+    "media",
+    "engine"
+  ],
+  "display": {
+    "summary": "ffmpeg-backed batch transcoder with hardware acceleration (VAAPI/VideoToolbox) and an HTTP/SSE control API for other Hosty apps to drive re-encoding jobs.",
+    "icon": "assets/icon.svg",
+    "screenshots": []
+  },
+  "releasesUrl": "feeds/com.haas.transcode-engine.json",
+  "signerIdentity": "github.com/alex-de-haas/transcode-engine"
+}
