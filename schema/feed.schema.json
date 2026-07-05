@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alex-de-haas.github.io/hosty-catalog/schema/feed.schema.json",
+  "title": "Hosty per-app version feed (marketplace.0.1)",
+  "description": "An app's release list, pointed at by an entry's releasesUrl. Author-owned: new versions land here (not in the catalog), so releases flow without a catalog PR. Runtime-agnostic — a version points at a manifest and carries an optional, discriminated artifact identity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["versions"],
+  "properties": {
+    "versions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "manifestRef"],
+        "properties": {
+          "version": { "type": "string", "minLength": 1 },
+          "manifestRef": {
+            "type": "string",
+            "description": "Absolute https URL to the app's manifest.json for this version.",
+            "format": "uri",
+            "pattern": "^https?://"
+          },
+          "artifact": {
+            "type": "object",
+            "description": "Optional resolved artifact identity. Core re-resolves at install from the manifest's runtime, so this is a post-publish optimization and the provenance anchor for signing.",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": { "enum": ["image", "source", "prebuilt"] },
+              "imageDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+              "commit": { "type": "string" },
+              "ref": { "type": "string" },
+              "bundleHash": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "tags": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Dist-tags resolving to a version string (e.g. stable/beta).",
+      "properties": {
+        "stable": { "type": "string" },
+        "beta": { "type": "string" }
+      }
+    }
+  }
+}

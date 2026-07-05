@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alex-de-haas.github.io/hosty-catalog/schema/entry.schema.json",
+  "title": "Hosty catalog entry (marketplace.0.1)",
+  "description": "One app's membership entry. Metadata and pointers only — the app's manifest and artifact live in the author's own repo/registry; the catalog never contains app code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Reverse-DNS app id. Must match Hosty Core's app id rule and equal the folder name under apps/.",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,62}$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name for the storefront card. Falls back to the id when omitted.",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "publisher": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "maxLength": 120 },
+        "url": { "type": "string", "format": "uri", "pattern": "^https?://" },
+        "email": { "type": "string", "format": "email" }
+      }
+    },
+    "category": {
+      "type": "string",
+      "description": "Marketplace category.",
+      "enum": ["Media", "Developer Tools", "Productivity", "Networking", "AI", "Utilities", "Other"]
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 32 },
+      "maxItems": 16
+    },
+    "display": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "summary": { "type": "string", "maxLength": 200 },
+        "icon": {
+          "type": "string",
+          "description": "Icon: a repo-relative asset path (e.g. assets/icon.svg, rewritten to an absolute URL at publish) or an absolute https URL.",
+          "minLength": 1
+        },
+        "screenshots": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "maxItems": 8
+        }
+      }
+    },
+    "releasesUrl": {
+      "type": "string",
+      "description": "The per-app version feed: a repo-relative path (e.g. feeds/<id>.json, rewritten at publish) or an absolute https URL to an author-hosted feed.",
+      "minLength": 1
+    },
+    "signerIdentity": {
+      "type": "string",
+      "description": "Trust anchor a signed feed must match (verified once signing lands). Informational until then.",
+      "minLength": 1
+    }
+  }
+}

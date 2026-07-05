@@ -1,0 +1,11 @@
+{
+  "name": "hosty-catalog",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The official Hosty marketplace catalog (marketplace.0.1). Curated, PR-reviewed runtime apps.",
+  "scripts": {
+    "validate": "node scripts/validate.mjs",
+    "generate": "node scripts/generate-catalog.mjs"
+  }
+}

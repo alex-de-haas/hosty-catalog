@@ -1,0 +1,79 @@
+name: Submit an app
+description: Propose a runtime app for the Hosty catalog (a maintainer turns this into an entry PR).
+title: "[app] <reverse-dns-id>"
+labels: ["app-submission"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for submitting an app! The catalog holds **metadata and pointers only** — your app's
+        manifest and artifact stay in your own repo/registry. A maintainer will review capabilities and
+        publisher identity and open the entry PR. Prefer to open the PR yourself? See the README.
+  - type: input
+    id: app-id
+    attributes:
+      label: App id (reverse-DNS)
+      description: Must match ^[a-z0-9][a-z0-9._-]{0,62}$ and your manifest's id, e.g. com.example.notes
+      placeholder: com.example.notes
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: Display name
+      placeholder: Notes
+    validations:
+      required: true
+  - type: input
+    id: publisher
+    attributes:
+      label: Publisher (name / url / email)
+      placeholder: Example Co / https://example.com / team@example.com
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Media
+        - Developer Tools
+        - Productivity
+        - Networking
+        - AI
+        - Utilities
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: releases-url
+    attributes:
+      label: Release feed URL (releasesUrl)
+      description: An https URL to your version feed (marketplace.0.1). See schema/feed.schema.json.
+      placeholder: https://example.com/hosty/releases.json
+    validations:
+      required: true
+  - type: input
+    id: manifest-url
+    attributes:
+      label: Latest manifest URL
+      description: An https URL to the app's manifest.json (for the reviewer to check capabilities/mounts).
+      placeholder: https://raw.githubusercontent.com/example/app/main/manifest.json
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: One-line summary
+      placeholder: Take notes.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmations
+      options:
+        - label: The app id matches my manifest's id and the reverse-DNS format.
+          required: true
+        - label: The manifest and artifact are hosted in my own repo/registry (not submitted here).
+          required: true

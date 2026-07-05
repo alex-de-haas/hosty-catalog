@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100" role="img" aria-label="Demo App">
+  <rect width="100" height="100" rx="20" fill="#4f46e5"/>
+  <g fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M30 40 V60 M70 40 V60 M30 50 H42 M58 50 H70"/>
+    <rect x="22" y="22" width="14" height="14" rx="4"/>
+    <rect x="64" y="22" width="14" height="14" rx="4"/>
+    <rect x="22" y="64" width="14" height="14" rx="4"/>
+    <rect x="64" y="64" width="14" height="14" rx="4"/>
+    <rect x="43" y="43" width="14" height="14" rx="4"/>
+  </g>
+</svg>

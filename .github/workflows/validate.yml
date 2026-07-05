@@ -1,0 +1,20 @@
+name: Validate
+
+# PR gate: validate every entry (and any repo-hosted feed) and prove the catalog still generates.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate entries
+        run: node scripts/validate.mjs
+      - name: Generate catalog (build check)
+        run: node scripts/generate-catalog.mjs

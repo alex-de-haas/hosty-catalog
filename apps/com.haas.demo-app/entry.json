@@ -1,0 +1,18 @@
+{
+  "id": "com.haas.demo-app",
+  "name": "Demo App",
+  "publisher": {
+    "name": "Haas",
+    "url": "https://github.com/alex-de-haas",
+    "email": "a.zayats@outlook.com"
+  },
+  "category": "Developer Tools",
+  "tags": ["demo", "example", "reference"],
+  "display": {
+    "summary": "A reference Hosty runtime app used to demonstrate the platform and this catalog.",
+    "icon": "assets/icon.svg",
+    "screenshots": []
+  },
+  "releasesUrl": "feeds/com.haas.demo-app.json",
+  "signerIdentity": "github.com/alex-de-haas/hosty-catalog"
+}

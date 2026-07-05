@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Submit an app via Pull Request
+    url: https://github.com/alex-de-haas/hosty-catalog#submitting-an-app
+    about: Prefer Git? Add your apps/<id>/entry.json directly and open a PR.

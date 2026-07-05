@@ -1,0 +1,6 @@
+# Catalog maintainers review every change (schemas, scripts, CI, and new entries).
+* @alex-de-haas
+
+# Per-app ownership: once an app is accepted, its author can be added as a co-owner of their own
+# entry folder so they can approve their own release/metadata updates, e.g.:
+# /apps/com.example.notes/ @alex-de-haas @example-author

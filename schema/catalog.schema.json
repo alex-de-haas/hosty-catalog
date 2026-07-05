@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://alex-de-haas.github.io/hosty-catalog/schema/catalog.schema.json",
+  "title": "Hosty catalog index (marketplace.0.1)",
+  "description": "The generated, published storefront directory (catalog.json). Built by CI from every apps/<id>/entry.json — do not hand-edit. Hosty Core requires schemaVersion to equal 'marketplace.0.1'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "apps"],
+  "properties": {
+    "schemaVersion": { "const": "marketplace.0.1" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "url": { "type": "string" }
+      }
+    },
+    "apps": {
+      "type": "array",
+      "items": { "$ref": "entry.schema.json" }
+    }
+  }
+}
