@@ -7,17 +7,7 @@
     "email": "a.zayats@outlook.com"
   },
   "category": "Media",
-  "tags": [
-    "media",
-    "streaming",
-    "jellyfin",
-    "torrent"
-  ],
-  "display": {
-    "summary": "Self-hosted media server: torrent ingest, automatic organize/identify/probe, and a Jellyfin-compatible streaming surface for native clients (Infuse).",
-    "icon": "assets/icon.svg",
-    "screenshots": []
-  },
-  "releasesUrl": "feeds/com.haas.media-server.json",
+  "tags": ["media", "streaming", "jellyfin", "movies", "tv"],
+  "releasesUrl": "https://raw.githubusercontent.com/alex-de-haas/media-server/main/releases.json",
   "signerIdentity": "github.com/alex-de-haas/media-server"
 }
