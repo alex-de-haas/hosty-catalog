@@ -4,12 +4,45 @@
 // Relative `display.icon`/`display.screenshots` (resolved against the entry folder) and a relative
 // `releasesUrl` (resolved against the repo root) are rewritten to absolute URLs under --base-url so a
 // browser and Hosty Core can fetch them. Absolute http(s) refs are left untouched.
+//
+// With --vendor, the generator additionally fetches each app's manifest (at its feed's stable version)
+// and vendors the manifest-level display assets it declares — icon, screenshots, and a markdown
+// descriptionFile plus the images that description references — into dist/apps/<id>/vendored/, so the
+// app repository is the source of truth while the published storefront stays self-contained (no
+// hotlinking). A hand-authored entry.display field overrides the manifest (curation wins). Vendoring
+// hits the network and fails loudly, so it is opt-in: CI's build check runs without it, and publish
+// runs with it. See README "Publishing".
 
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { APPS_DIR, FEEDS_DIR, ROOT, SCHEMA_VERSION, isHttpUrl, listEntryDirs, readJson } from "./lib.mjs";
+import { dirname, join, sep } from "node:path";
+import {
+  APPS_DIR,
+  DESCRIPTION_EXTENSIONS,
+  DESCRIPTION_MAX_BYTES,
+  FEEDS_DIR,
+  ICON_MAX_BYTES,
+  IMAGE_EXTENSIONS,
+  IMAGE_MAX_BYTES,
+  PER_APP_MAX_BYTES,
+  PER_APP_MAX_FILES,
+  ROOT,
+  SCHEMA_VERSION,
+  SCREENSHOT_MAX_BYTES,
+  VendorError,
+  assertAllowedExtension,
+  containedRelativePath,
+  discoverMarkdownImageRefs,
+  fetchCapped,
+  isHttpUrl,
+  listEntryDirs,
+  manifestFolderBase,
+  readJson,
+  resolveContainedRef,
+  resolveStableManifestRef,
+} from "./lib.mjs";
 
 const DIST = join(ROOT, "dist");
+const MANIFEST_MAX_BYTES = 1 * 1024 * 1024;
 
 function parseBaseUrl() {
   const arg = process.argv.find((value) => value.startsWith("--base-url="));
@@ -17,44 +50,199 @@ function parseBaseUrl() {
   return raw.replace(/\/+$/, "");
 }
 
-function main() {
-  const base = parseBaseUrl();
+// Reads an entry's feed to resolve the manifest the storefront should vendor from.
+// The feed is either a repo-relative file (feeds/<id>.json) or an author-hosted https URL.
+async function loadStableManifestRef(entry) {
+  const releasesUrl = entry.releasesUrl;
+  if (releasesUrl === undefined) return null;
+  let feed;
+  if (isHttpUrl(releasesUrl)) {
+    feed = JSON.parse((await fetchCapped(releasesUrl, MANIFEST_MAX_BYTES)).toString("utf8"));
+  } else {
+    // A repo-relative feed must stay inside the repo — a crafted entry must not read arbitrary
+    // files (e.g. releasesUrl: "../../etc/passwd") off the build machine.
+    const feedPath = join(ROOT, releasesUrl);
+    if (feedPath !== ROOT && !feedPath.startsWith(ROOT + sep)) {
+      throw new VendorError(`releasesUrl '${releasesUrl}' escapes the repository root`);
+    }
+    if (!existsSync(feedPath)) return null;
+    feed = readJson(feedPath);
+  }
+  return resolveStableManifestRef(feed);
+}
+
+// Tracks a single app's vendoring budget and writes fetched bytes under dist/apps/<id>/vendored/.
+// `root` is the app's manifest folder (the asset root): the published path always mirrors a file's
+// path relative to that root — never relative to a description's subfolder — so a vendored markdown
+// file resolves its own relative images (including ../ into a sibling folder) without any rewriting.
+function makeVendorSink(id, base, root) {
+  let files = 0;
+  let bytes = 0;
+  return {
+    // Fetch `ref` (resolved against `resolveBase`, contained under `root`), write it, return its URL.
+    async vendor(ref, { maxBytes, allowlist, resolveBase = root }) {
+      assertAllowedExtension(ref, allowlist);
+      const url = resolveContainedRef(resolveBase, ref, root);
+      const relPath = containedRelativePath(root, url);
+      const data = await fetchCapped(url, maxBytes);
+      files += 1;
+      bytes += data.byteLength;
+      if (files > PER_APP_MAX_FILES) {
+        throw new VendorError(`vendors more than ${PER_APP_MAX_FILES} files`);
+      }
+      if (bytes > PER_APP_MAX_BYTES) {
+        throw new VendorError(`vendored assets exceed ${PER_APP_MAX_BYTES} bytes in total`);
+      }
+      const dest = join(DIST, "apps", id, "vendored", relPath);
+      mkdirSync(dirname(dest), { recursive: true });
+      writeFileSync(dest, data);
+      return { publishedUrl: `${base}/apps/${id}/vendored/${relPath}`, data };
+    },
+  };
+}
+
+// Vendor a manifest's display assets for one app. Returns the manifest-sourced display fields
+// (icon / screenshots / summary / descriptionUrl); entry.display overrides are applied by the caller.
+async function vendorManifestAssets(id, manifestRef, base) {
+  const manifest = JSON.parse((await fetchCapped(manifestRef, MANIFEST_MAX_BYTES)).toString("utf8"));
+  // A malformed manifest can parse to null or a non-object (e.g. a bare string/number) — guard before
+  // reading properties so it degrades to "no manifest assets" instead of a TypeError crash.
+  if (!manifest || typeof manifest !== "object") return {};
+  const meta = manifest.catalogMetadata;
+  if (!meta || typeof meta !== "object") return {};
+
+  const folderBase = manifestFolderBase(manifestRef);
+  const sink = makeVendorSink(id, base, folderBase);
+  const out = {};
+
+  if (typeof meta.icon === "string" && meta.icon.length > 0) {
+    out.icon = isHttpUrl(meta.icon)
+      ? meta.icon
+      : (await sink.vendor(meta.icon, { maxBytes: ICON_MAX_BYTES, allowlist: IMAGE_EXTENSIONS })).publishedUrl;
+  }
+
+  if (Array.isArray(meta.screenshots) && meta.screenshots.length > 0) {
+    out.screenshots = [];
+    for (const shot of meta.screenshots) {
+      if (typeof shot !== "string" || shot.length === 0) {
+        throw new VendorError("screenshot entries must be non-empty strings");
+      }
+      out.screenshots.push(
+        isHttpUrl(shot)
+          ? shot
+          : (await sink.vendor(shot, { maxBytes: SCREENSHOT_MAX_BYTES, allowlist: IMAGE_EXTENSIONS })).publishedUrl,
+      );
+    }
+  }
+
+  if (typeof meta.summary === "string" && meta.summary.length > 0) {
+    out.summary = meta.summary;
+  }
+
+  if (typeof meta.descriptionFile === "string" && meta.descriptionFile.length > 0) {
+    if (isHttpUrl(meta.descriptionFile)) {
+      throw new VendorError(`descriptionFile must be a manifest-relative path, not an absolute URL (${meta.descriptionFile})`);
+    }
+    const { publishedUrl, data } = await sink.vendor(meta.descriptionFile, {
+      maxBytes: DESCRIPTION_MAX_BYTES,
+      allowlist: DESCRIPTION_EXTENSIONS,
+    });
+    out.descriptionUrl = publishedUrl;
+    // The description resolves its own relative images against its own folder; they are still contained
+    // under the manifest folder (so ../assets/icon.svg into a sibling folder is fine) and vendored at
+    // their manifest-folder-relative path, keeping the relationship intact. Absolute refs are left for
+    // the renderer to show as links (no hotlinking of author-mutable images into the storefront).
+    const descResolveBase = manifestFolderBase(resolveContainedRef(folderBase, meta.descriptionFile));
+    for (const ref of discoverMarkdownImageRefs(data.toString("utf8"))) {
+      if (isHttpUrl(ref)) continue;
+      if (ref.startsWith("#") || ref.startsWith("data:")) continue;
+      await sink.vendor(ref, { maxBytes: IMAGE_MAX_BYTES, allowlist: IMAGE_EXTENSIONS, resolveBase: descResolveBase });
+    }
+  }
+
+  return out;
+}
+
+async function buildApp({ id, entryPath }, { base, vendor }) {
+  const entry = readJson(entryPath);
   const abs = (path) => `${base}/${path.replace(/^\/+/, "")}`;
-  const rewriteAsset = (id, value) => (value === undefined || isHttpUrl(value) ? value : abs(`apps/${id}/${value}`));
+  const rewriteEntryAsset = (value) => (value === undefined || isHttpUrl(value) ? value : abs(`apps/${id}/${value}`));
 
+  // Hand-authored entry.display, with relative asset paths rewritten to published URLs.
+  const entryDisplay = entry.display ?? {};
+  const handIcon = rewriteEntryAsset(entryDisplay.icon);
+  const handShots = (entryDisplay.screenshots ?? []).map(rewriteEntryAsset);
+
+  // Manifest-level assets (vendored) fill whatever the entry doesn't override.
+  let manifest = {};
+  if (vendor) {
+    let manifestRef;
+    try {
+      manifestRef = await loadStableManifestRef(entry);
+    } catch (error) {
+      throw new VendorError(`${id}: could not resolve a manifest to vendor from: ${error.message}`);
+    }
+    if (manifestRef) {
+      try {
+        manifest = await vendorManifestAssets(id, manifestRef, base);
+      } catch (error) {
+        throw new VendorError(`${id}: vendoring failed (${manifestRef}): ${error.message}`);
+      }
+    }
+  }
+
+  // Per-field precedence: a hand-authored entry.display value wins; the manifest fills the gaps.
+  const icon = entryDisplay.icon !== undefined ? handIcon : manifest.icon;
+  const screenshots = entryDisplay.screenshots !== undefined ? handShots : manifest.screenshots;
+  const summary = entryDisplay.summary ?? manifest.summary;
+  const descriptionUrl = manifest.descriptionUrl;
+
+  const display = {};
+  if (summary !== undefined) display.summary = summary;
+  if (icon !== undefined) display.icon = icon;
+  if (screenshots !== undefined) display.screenshots = screenshots;
+  if (descriptionUrl !== undefined) display.descriptionUrl = descriptionUrl;
+
+  const releasesUrl =
+    entry.releasesUrl === undefined || isHttpUrl(entry.releasesUrl) ? entry.releasesUrl : abs(entry.releasesUrl);
+
+  return {
+    ...entry,
+    ...(Object.keys(display).length > 0 ? { display } : {}),
+    ...(releasesUrl ? { releasesUrl } : {}),
+  };
+}
+
+async function main() {
+  const base = parseBaseUrl();
+  const vendor = process.argv.includes("--vendor");
   const source = existsSync(join(ROOT, "catalog.source.json")) ? readJson(join(ROOT, "catalog.source.json")) : undefined;
-
-  const apps = listEntryDirs().map(({ id, entryPath }) => {
-    const entry = readJson(entryPath);
-    const display = entry.display
-      ? {
-          ...entry.display,
-          icon: rewriteAsset(id, entry.display.icon),
-          screenshots: (entry.display.screenshots ?? []).map((shot) => rewriteAsset(id, shot)),
-        }
-      : undefined;
-    const releasesUrl =
-      entry.releasesUrl === undefined || isHttpUrl(entry.releasesUrl) ? entry.releasesUrl : abs(entry.releasesUrl);
-    return { ...entry, ...(display ? { display } : {}), ...(releasesUrl ? { releasesUrl } : {}) };
-  });
-
-  const catalog = { schemaVersion: SCHEMA_VERSION, ...(source ? { source } : {}), apps };
 
   rmSync(DIST, { recursive: true, force: true });
   mkdirSync(DIST, { recursive: true });
-  writeFileSync(join(DIST, "catalog.json"), `${JSON.stringify(catalog, null, 2)}\n`);
 
-  // Copy the assets/feeds/schema the catalog points at so the published site is self-contained.
-  cpSync(APPS_DIR, join(DIST, "apps"), { recursive: true, filter: (src) => !src.endsWith("entry.json") });
+  // Copy the hand-hosted assets/feeds/schema the catalog points at (vendored/ is written on top).
+  // Exclude only files named exactly entry.json — not e.g. a legitimate asset like custom-entry.json.
+  cpSync(APPS_DIR, join(DIST, "apps"), { recursive: true, filter: (src) => src.split(sep).pop() !== "entry.json" });
   if (existsSync(FEEDS_DIR)) {
     cpSync(FEEDS_DIR, join(DIST, "feeds"), { recursive: true });
   }
   if (existsSync(join(ROOT, "schema"))) {
     cpSync(join(ROOT, "schema"), join(DIST, "schema"), { recursive: true });
   }
+
+  const apps = [];
+  for (const entry of listEntryDirs()) {
+    apps.push(await buildApp(entry, { base, vendor }));
+  }
+
+  const catalog = { schemaVersion: SCHEMA_VERSION, ...(source ? { source } : {}), apps };
+  writeFileSync(join(DIST, "catalog.json"), `${JSON.stringify(catalog, null, 2)}\n`);
   writeFileSync(join(DIST, "index.html"), landingPage(catalog, base));
 
-  console.log(`Wrote dist/catalog.json with ${apps.length} app(s)${base ? ` (base ${base})` : ""}.`);
+  console.log(
+    `Wrote dist/catalog.json with ${apps.length} app(s)${base ? ` (base ${base})` : ""}${vendor ? " [vendored manifest assets]" : ""}.`,
+  );
 }
 
 function landingPage(catalog, base) {
@@ -87,4 +275,7 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 }
 
-main();
+main().catch((error) => {
+  console.error(`error    ${error instanceof VendorError ? error.message : error.stack ?? error}`);
+  process.exit(1);
+});

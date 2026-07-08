@@ -16,5 +16,10 @@ jobs:
           node-version: "22"
       - name: Validate entries
         run: node scripts/validate.mjs
+      - name: Test tooling
+        run: node scripts/vendor.test.mjs
       - name: Generate catalog (build check)
+        # Offline build check — no --vendor, so an unrelated PR is never blocked by an external
+        # app repo's state. Manifest-asset vendoring runs at publish (and via `npm run generate:vendor`
+        # for authors self-checking a submission).
         run: node scripts/generate-catalog.mjs

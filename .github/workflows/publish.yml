@@ -28,7 +28,11 @@ jobs:
       - name: Validate
         run: node scripts/validate.mjs
       - name: Generate catalog
-        run: node scripts/generate-catalog.mjs
+        # --vendor fetches each app's manifest + declared display assets from the app repo and
+        # vendors them into dist/ (self-contained storefront, no hotlinking). It hits the network
+        # and fails the build on any declared-asset problem; a failed build keeps the last good
+        # Pages deploy live.
+        run: node scripts/generate-catalog.mjs --vendor
         env:
           # Deterministic project-Pages base URL: https://<owner>.github.io/<repo>.
           CATALOG_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
