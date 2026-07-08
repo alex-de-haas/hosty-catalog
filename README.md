@@ -128,6 +128,10 @@ node scripts/generate-catalog.mjs --vendor --base-url=…   # full build: also v
 manifest and its declared assets. Run it to self-check a submission before opening a PR. Without it,
 `generate` is offline and uses only `entry.display`, so the PR gate and quick local runs stay hermetic.
 
+Vendoring only fetches public `http(s)` URLs and refuses cloud-metadata / loopback / private-range
+targets (SSRF defense-in-depth). To self-check against a **localhost** fixture server, set
+`CATALOG_ALLOW_PRIVATE_FETCH=1` (test-only; the metadata endpoint stays blocked).
+
 ## Publishing
 
 `.github/workflows/validate.yml` gates every PR: it validates entries, runs the tooling tests, and does an

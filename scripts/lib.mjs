@@ -109,6 +109,13 @@ export function resolveContainedRef(resolveBase, ref, containmentRoot = resolveB
   } catch {
     throw new VendorError(`ref '${ref}' is not a resolvable URL`);
   }
+  // The URL parser resolves literal ./ and ../ dot-segments but leaves percent-encoded ones
+  // (%2e%2e, %2f, %5c) intact, so a startsWith check would treat `.../demo/%2e%2e/secret` as
+  // contained even though a server may decode it and escape the folder. Reject encoded traversal
+  // tokens outright — real asset paths never contain them.
+  if (/%2e|%2f|%5c/i.test(resolved.pathname)) {
+    throw new VendorError(`ref '${ref}' contains percent-encoded path traversal`);
+  }
   if (!resolved.href.startsWith(containmentRoot)) {
     throw new VendorError(`ref '${ref}' escapes the app's manifest folder (${containmentRoot})`);
   }
@@ -131,19 +138,71 @@ export function assertAllowedExtension(ref, allowlist) {
   }
 }
 
-// Fetch a URL, streaming through a byte cap. Never trusts Content-Length: a chunked or
+// Reject fetch targets that could turn the publisher into an SSRF proxy: non-http(s) schemes and
+// hosts that are the cloud metadata service or a literal loopback/link-local/private/unspecified IP.
+// The catalog's manifest/asset URLs are PR-reviewed, so this is defense-in-depth (it does not resolve
+// DNS, so a hostname pointing at a private IP is not caught — a heavier, rebinding-prone mitigation
+// left out as disproportionate here), but it closes the concrete metadata-endpoint vector cheaply.
+const BLOCKED_HOSTS = new Set(["metadata.google.internal", "metadata"]);
+export function assertSafeFetchTarget(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new VendorError(`'${url}' is not a valid URL`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new VendorError(`'${url}' uses a non-http(s) scheme`);
+  }
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  // The cloud metadata service and its hostnames are always blocked (the crown-jewel SSRF target).
+  if (host === "169.254.169.254" || BLOCKED_HOSTS.has(host)) {
+    throw new VendorError(`fetching from metadata host '${host}' is blocked`);
+  }
+  // The broader loopback/link-local/private ranges are relaxed only when tests point the fetcher at a
+  // localhost fixture server (production manifestRefs are public URLs, never these ranges).
+  if (process.env.CATALOG_ALLOW_PRIVATE_FETCH === "1") return;
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [a, b] = v4.slice(1).map(Number);
+    const blocked =
+      a === 0 || a === 127 || // unspecified / loopback
+      (a === 169 && b === 254) || // link-local
+      a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168); // private
+    if (blocked) throw new VendorError(`fetching from private/link-local address '${host}' is blocked`);
+  } else if (host.includes(":")) {
+    // IPv6 literal: block loopback (::1), unspecified (::), link-local (fe80::/10),
+    // unique-local (fc00::/7), and IPv4-mapped private/loopback.
+    if (host === "::1" || host === "::" || /^fe[89ab]/.test(host) || /^f[cd]/.test(host) || host.includes("127.0.0.1") || host.includes("169.254")) {
+      throw new VendorError(`fetching from private/link-local address '${host}' is blocked`);
+    }
+  }
+}
+
+// Fetch a URL, streaming through a byte cap. Never trusts Content-Length for the cap: a chunked or
 // header-less response is capped during the read, so a hostile or broken source can't force
-// unbounded buffering. Retries transient network/HTTP failures; a cap breach is deterministic
-// and is not retried.
+// unbounded buffering. Retries transient network / 5xx / 429 failures; a cap breach, a 4xx, and an
+// SSRF-blocked target are deterministic and are not retried.
 export async function fetchCapped(url, maxBytes, { retries = 2, retryDelayMs = 300, fetchImpl = fetch } = {}) {
+  assertSafeFetchTarget(url);
   let lastError;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await fetchImpl(url, { redirect: "follow" });
       if (!response.ok) {
+        // Deterministic client errors (4xx other than 429) won't change on retry — fail fast.
+        if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+          throw new VendorError(`'${url}' returned HTTP ${response.status} ${response.statusText}`);
+        }
         throw new Error(`HTTP ${response.status} ${response.statusText}`);
       }
       if (!response.body) {
+        // No stream to cap during read, so pre-check the declared length before buffering to avoid
+        // an OOM on a huge body-less response, then re-check the actual size.
+        const declared = Number.parseInt(response.headers.get("content-length") ?? "", 10);
+        if (!Number.isNaN(declared) && declared > maxBytes) {
+          throw new VendorError(`'${url}' exceeds the ${maxBytes}-byte cap (Content-Length: ${declared})`);
+        }
         const buffer = Buffer.from(await response.arrayBuffer());
         if (buffer.byteLength > maxBytes) {
           throw new VendorError(`'${url}' exceeds the ${maxBytes}-byte cap`);
@@ -177,7 +236,7 @@ export async function fetchCapped(url, maxBytes, { retries = 2, retryDelayMs = 3
 }
 
 // Discover image references in a markdown document: inline `![alt](url)`, HTML `<img src>`,
-// and reference-style `![alt][label]` / `![label]` resolved against `[label]: url` definitions.
+// and reference-style `![alt][label]` / `![label][]` resolved against `[label]: url` definitions.
 // A reference-style image whose label has no definition is a loud failure (dangling ref).
 // Returns unique raw ref strings in document order; constructs the regexes don't recognize are,
 // by design, a review-time concern rather than a silent skip.
@@ -193,19 +252,27 @@ export function discoverMarkdownImageRefs(markdown) {
     }
   };
 
+  // Strip fenced (``` / ~~~) and inline (`…`) code first: an image-like example inside a code sample
+  // is documentation, not a real asset, and must not be discovered (it would fail the build loudly).
+  const scan = markdown
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/~~~[\s\S]*?~~~/g, "")
+    .replace(/`[^`\n]+`/g, "");
+
   // Reference-link definitions: `[label]: url "title"` at (indented) line start.
   const definitions = new Map();
-  for (const match of markdown.matchAll(/^[ \t]*\[([^\]]+)\]:\s*(<[^>]*>|\S+)/gm)) {
+  for (const match of scan.matchAll(/^[ \t]*\[([^\]]+)\]:\s*(<[^>]*>|\S+)/gm)) {
     definitions.set(match[1].trim().toLowerCase(), match[2]);
   }
 
   // Inline images: ![alt](url "title"), url optionally <bracketed>.
-  for (const match of markdown.matchAll(/!\[[^\]]*\]\(\s*(<[^>]*>|[^)\s]+)/g)) {
+  for (const match of scan.matchAll(/!\[[^\]]*\]\(\s*(<[^>]*>|[^)\s]+)/g)) {
     add(match[1]);
   }
 
-  // HTML images: <img ... src="url" ...> (single or double quoted).
-  for (const match of markdown.matchAll(/<img\b[^>]*?\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
+  // HTML images: <img ... src="url" ...> (single or double quoted). Require whitespace before `src`
+  // so `data-src`/`custom-src` lazy-loading attributes aren't mistaken for the real source.
+  for (const match of scan.matchAll(/<img\b[^>]*?\s+src\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
     add(match[1] ?? match[2] ?? "");
   }
 
@@ -213,7 +280,7 @@ export function discoverMarkdownImageRefs(markdown) {
   // required, which keeps this from misreading an inline ![alt](url) or a bare ![text]. Shortcut
   // form (![label] with no brackets) is intentionally out of scope — too ambiguous to detect safely.
   const usedLabels = new Set();
-  for (const match of markdown.matchAll(/!\[([^\]]*)\]\[([^\]]*)\]/g)) {
+  for (const match of scan.matchAll(/!\[([^\]]*)\]\[([^\]]*)\]/g)) {
     const label = (match[2].trim() || match[1].trim());
     if (label) usedLabels.add(label.toLowerCase());
   }

@@ -14,7 +14,7 @@
 // runs with it. See README "Publishing".
 
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import {
   APPS_DIR,
   DESCRIPTION_EXTENSIONS,
@@ -59,7 +59,12 @@ async function loadStableManifestRef(entry) {
   if (isHttpUrl(releasesUrl)) {
     feed = JSON.parse((await fetchCapped(releasesUrl, MANIFEST_MAX_BYTES)).toString("utf8"));
   } else {
+    // A repo-relative feed must stay inside the repo — a crafted entry must not read arbitrary
+    // files (e.g. releasesUrl: "../../etc/passwd") off the build machine.
     const feedPath = join(ROOT, releasesUrl);
+    if (feedPath !== ROOT && !feedPath.startsWith(ROOT + sep)) {
+      throw new VendorError(`releasesUrl '${releasesUrl}' escapes the repository root`);
+    }
     if (!existsSync(feedPath)) return null;
     feed = readJson(feedPath);
   }
@@ -100,6 +105,9 @@ function makeVendorSink(id, base, root) {
 // (icon / screenshots / summary / descriptionUrl); entry.display overrides are applied by the caller.
 async function vendorManifestAssets(id, manifestRef, base) {
   const manifest = JSON.parse((await fetchCapped(manifestRef, MANIFEST_MAX_BYTES)).toString("utf8"));
+  // A malformed manifest can parse to null or a non-object (e.g. a bare string/number) — guard before
+  // reading properties so it degrades to "no manifest assets" instead of a TypeError crash.
+  if (!manifest || typeof manifest !== "object") return {};
   const meta = manifest.catalogMetadata;
   if (!meta || typeof meta !== "object") return {};
 
@@ -116,6 +124,9 @@ async function vendorManifestAssets(id, manifestRef, base) {
   if (Array.isArray(meta.screenshots) && meta.screenshots.length > 0) {
     out.screenshots = [];
     for (const shot of meta.screenshots) {
+      if (typeof shot !== "string" || shot.length === 0) {
+        throw new VendorError("screenshot entries must be non-empty strings");
+      }
       out.screenshots.push(
         isHttpUrl(shot)
           ? shot
@@ -211,7 +222,8 @@ async function main() {
   mkdirSync(DIST, { recursive: true });
 
   // Copy the hand-hosted assets/feeds/schema the catalog points at (vendored/ is written on top).
-  cpSync(APPS_DIR, join(DIST, "apps"), { recursive: true, filter: (src) => !src.endsWith("entry.json") });
+  // Exclude only files named exactly entry.json — not e.g. a legitimate asset like custom-entry.json.
+  cpSync(APPS_DIR, join(DIST, "apps"), { recursive: true, filter: (src) => src.split(sep).pop() !== "entry.json" });
   if (existsSync(FEEDS_DIR)) {
     cpSync(FEEDS_DIR, join(DIST, "feeds"), { recursive: true });
   }

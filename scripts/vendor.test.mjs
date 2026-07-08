@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import {
   VendorError,
   assertAllowedExtension,
+  assertSafeFetchTarget,
   containedRelativePath,
   discoverMarkdownImageRefs,
   fetchCapped,
@@ -20,6 +21,10 @@ import {
   resolveStableManifestRef,
   IMAGE_EXTENSIONS,
 } from "./lib.mjs";
+
+// The SSRF guard blocks loopback/private ranges; tests fetch from a localhost fixture server, so opt
+// into the same test-only relaxation the generator honors. The metadata endpoint stays blocked.
+process.env.CATALOG_ALLOW_PRIVATE_FETCH = "1";
 
 const GENERATE = fileURLToPath(new URL("./generate-catalog.mjs", import.meta.url));
 
@@ -93,6 +98,42 @@ await test("discoverMarkdownImageRefs finds inline, html, and reference images",
 
 await test("discoverMarkdownImageRefs throws on a dangling reference label", () => {
   assert.throws(() => discoverMarkdownImageRefs("![missing][nope]\n"), VendorError);
+});
+
+await test("resolveContainedRef rejects percent-encoded traversal", () => {
+  const base = manifestFolderBase("https://h/apps/demo/manifest.json");
+  assert.throws(() => resolveContainedRef(base, "%2e%2e/secret.png"), VendorError);
+  assert.throws(() => resolveContainedRef(base, "assets%2f..%2fsecret.png"), VendorError);
+});
+
+await test("assertSafeFetchTarget blocks metadata, private, and non-http targets", () => {
+  // Always blocked, even under the test-only private-fetch relaxation.
+  assert.throws(() => assertSafeFetchTarget("http://169.254.169.254/latest/meta-data/"), VendorError);
+  assert.throws(() => assertSafeFetchTarget("http://metadata.google.internal/"), VendorError);
+  assert.throws(() => assertSafeFetchTarget("file:///etc/passwd"), VendorError);
+  assert.doesNotThrow(() => assertSafeFetchTarget("https://raw.githubusercontent.com/o/r/main/manifest.json"));
+  // Loopback / private ranges are blocked only without the relaxation.
+  const saved = process.env.CATALOG_ALLOW_PRIVATE_FETCH;
+  delete process.env.CATALOG_ALLOW_PRIVATE_FETCH;
+  try {
+    assert.throws(() => assertSafeFetchTarget("http://127.0.0.1:8080/x"), VendorError);
+    assert.throws(() => assertSafeFetchTarget("http://10.0.0.5/x"), VendorError);
+    assert.throws(() => assertSafeFetchTarget("http://[::1]/x"), VendorError);
+  } finally {
+    process.env.CATALOG_ALLOW_PRIVATE_FETCH = saved;
+  }
+});
+
+await test("discoverMarkdownImageRefs ignores code blocks and data-src", () => {
+  const md = [
+    "![real](./a.png)",
+    "```",
+    "![fenced](./nope.png)",
+    "```",
+    "`![inlinecode](./nope2.png)`",
+    '<img data-src="./lazy.png" src="./b.png">',
+  ].join("\n");
+  assert.deepEqual(new Set(discoverMarkdownImageRefs(md)), new Set(["./a.png", "./b.png"]));
 });
 
 await test("resolveStableManifestRef prefers the stable tag, else the highest version", () => {
