@@ -29,11 +29,11 @@ configured the storefront is simply empty, and nothing changes for apps installe
 ```
 apps/<reverse-dns-id>/
   entry.json          # the catalog entry (metadata + pointers) — see schema/entry.schema.json
-  assets/             # optional icon / screenshots referenced by entry.display
+  assets/             # optional hand-hosted icon/screenshots (prefer manifest catalogMetadata — see Display assets)
 feeds/<id>.json       # optional repo-hosted version feed (authors may host their own instead)
 catalog.source.json   # this source's display metadata (name/description/url)
 schema/               # marketplace.0.1 JSON Schemas (entry / catalog / feed)
-scripts/              # generate-catalog.mjs, validate.mjs (dependency-free Node)
+scripts/              # generate-catalog.mjs, validate.mjs, vendor.test.mjs (dependency-free Node)
 ```
 
 CI generates `catalog.json` from every `apps/<id>/entry.json` — **never hand-edit `catalog.json`**.
@@ -45,7 +45,7 @@ Open the [**Submit an app**](../../issues/new?template=app-submission.yml) issue
 1. Create `apps/<reverse-dns-id>/entry.json`. The `id` must match your manifest's id, the reverse-DNS
    format `^[a-z0-9][a-z0-9._-]{0,62}$`, and the folder name.
 2. Point `releasesUrl` at your version feed (an https URL you host, or a repo-relative `feeds/<id>.json`
-   here). Drop an `assets/icon.svg` (or use an https `display.icon`).
+   here). Provide display assets — **preferably from your app repo** (see [Display assets](#display-assets)).
 3. Open a PR. CI validates the entry (and any repo-hosted feed); a maintainer reviews the capabilities,
    external mounts, and publisher identity declared by your manifest — a one-time trust gate.
 
@@ -82,22 +82,61 @@ discriminated artifact identity (image digest / source commit / prebuilt hash), 
 
 `artifact` is optional — Core re-resolves it at install from the manifest's declared runtime.
 
+## Display assets
+
+The **app repository is the source of truth for display assets** — the app's own manifest declares them
+under `catalogMetadata`, alongside the code they describe:
+
+```jsonc
+// manifest.json (in your app repo)
+"catalogMetadata": {
+  "icon": "assets/icon.svg",              // manifest-relative path (or an https URL)
+  "screenshots": ["assets/1.png"],
+  "descriptionFile": "docs/store.md"      // markdown long-description; images it references are vendored too
+}
+```
+
+At publish, the catalog fetches your manifest (at the feed's `stable` version), then **vendors** the
+declared assets — icon, screenshots, and the `descriptionFile` plus every relative image it references —
+into the published site under `apps/<id>/vendored/…`. This keeps the storefront self-contained and frozen
+at review time (no hotlinking to mutable author URLs), while you keep editing assets in your own repo.
+Everything served stays **within your manifest's folder**; a ref that escapes it, can't be fetched, is
+too large, or has a disallowed type fails the publish build. The vendored markdown is byte-identical to
+your source (Hosty resolves its relative image links at render time).
+
+`descriptionFile` must be markdown (`.md`); assets must be `svg/png/webp/jpg/jpeg/gif/avif`. External
+absolute image URLs inside a description are rendered as links, not inlined.
+
+**Hand-hosted `apps/<id>/assets/` in this repo still works** and a hand-authored `entry.display` field
+overrides the manifest (curation wins) — but it is discouraged for apps that have a public repo: prefer
+`catalogMetadata` so there is a single source of truth and version bumps carry asset changes automatically.
+
 ## Local development
 
 Dependency-free (Node 18+). No install step:
 
 ```bash
 node scripts/validate.mjs      # validate every entry + repo-hosted feed (the PR gate)
+node scripts/vendor.test.mjs   # test the generator + vendoring helpers
 node scripts/generate-catalog.mjs --base-url=https://alex-de-haas.github.io/hosty-catalog
-# → dist/catalog.json + copied assets/feeds/schema + a landing page
+# → dist/catalog.json + copied assets/feeds/schema + a landing page (offline; entry.display only)
+
+node scripts/generate-catalog.mjs --vendor --base-url=…   # full build: also vendor manifest assets (hits the network)
 ```
+
+`--vendor` (also `npm run generate:vendor`) is what produces the real storefront — fetching each app's
+manifest and its declared assets. Run it to self-check a submission before opening a PR. Without it,
+`generate` is offline and uses only `entry.display`, so the PR gate and quick local runs stay hermetic.
 
 ## Publishing
 
-`.github/workflows/validate.yml` gates every PR. On merge to `main`,
-`.github/workflows/publish.yml` regenerates `catalog.json` (rewriting relative asset/feed paths to
-absolute `https://<owner>.github.io/<repo>/…` URLs) and deploys `dist/` to GitHub Pages. Enable Pages
-once under **Settings → Pages → Source: GitHub Actions**.
+`.github/workflows/validate.yml` gates every PR: it validates entries, runs the tooling tests, and does an
+**offline** generate build check (no `--vendor`, so an unrelated PR is never blocked by another app repo's
+state). On merge to `main`, `.github/workflows/publish.yml` regenerates `catalog.json` **with `--vendor`**
+— rewriting relative feed/asset paths to absolute `https://<owner>.github.io/<repo>/…` URLs and vendoring
+each app's manifest-level display assets (see [Display assets](#display-assets)) — then deploys `dist/` to
+GitHub Pages. Vendoring fails the build on any declared-asset problem; a failed build leaves the last good
+deploy live. Enable Pages once under **Settings → Pages → Source: GitHub Actions**.
 
 ## Trust
 

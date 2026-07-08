@@ -6,6 +6,8 @@
   "description": "The official Hosty marketplace catalog (marketplace.0.1). Curated, PR-reviewed runtime apps.",
   "scripts": {
     "validate": "node scripts/validate.mjs",
-    "generate": "node scripts/generate-catalog.mjs"
+    "generate": "node scripts/generate-catalog.mjs",
+    "generate:vendor": "node scripts/generate-catalog.mjs --vendor",
+    "test": "node scripts/vendor.test.mjs"
   }
 }
