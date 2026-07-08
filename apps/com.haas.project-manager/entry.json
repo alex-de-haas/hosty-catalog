@@ -9,5 +9,5 @@
   "category": "Productivity",
   "tags": ["projects", "planning", "time-tracking", "azure-devops"],
   "releasesUrl": "https://raw.githubusercontent.com/alex-de-haas/project-manager/main/releases.json",
-  "signerIdentity": "github.com/alex-de-haas/hosty-catalog"
+  "signerIdentity": "github.com/alex-de-haas/project-manager"
 }

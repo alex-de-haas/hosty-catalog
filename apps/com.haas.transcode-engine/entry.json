@@ -9,5 +9,5 @@
   "category": "Media",
   "tags": ["transcode", "ffmpeg", "video", "hardware-acceleration", "engine"],
   "releasesUrl": "https://raw.githubusercontent.com/alex-de-haas/transcode-engine/main/releases.json",
-  "signerIdentity": "github.com/alex-de-haas/hosty-catalog"
+  "signerIdentity": "github.com/alex-de-haas/transcode-engine"
 }

@@ -9,5 +9,5 @@
   "category": "Media",
   "tags": ["media", "streaming", "jellyfin", "movies", "tv"],
   "releasesUrl": "https://raw.githubusercontent.com/alex-de-haas/media-server/main/releases.json",
-  "signerIdentity": "github.com/alex-de-haas/hosty-catalog"
+  "signerIdentity": "github.com/alex-de-haas/media-server"
 }

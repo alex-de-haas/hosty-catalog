@@ -9,5 +9,5 @@
   "category": "Networking",
   "tags": ["torrent", "bittorrent", "vpn", "downloads", "engine"],
   "releasesUrl": "https://raw.githubusercontent.com/alex-de-haas/torrent-engine/main/releases.json",
-  "signerIdentity": "github.com/alex-de-haas/hosty-catalog"
+  "signerIdentity": "github.com/alex-de-haas/torrent-engine"
 }
