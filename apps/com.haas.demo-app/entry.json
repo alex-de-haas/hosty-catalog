@@ -13,6 +13,6 @@
     "icon": "assets/icon.svg",
     "screenshots": []
   },
-  "releasesUrl": "feeds/com.haas.demo-app.json",
+  "releasesUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/demo-app/releases.json",
   "signerIdentity": "github.com/alex-de-haas/hosty-catalog"
 }
