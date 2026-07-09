@@ -10,17 +10,17 @@ export const ROOT = process.env.CATALOG_ROOT
   ? resolve(process.env.CATALOG_ROOT)
   : resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const APPS_DIR = join(ROOT, "apps");
-export const FEEDS_DIR = join(ROOT, "feeds");
 
 export const SCHEMA_VERSION = "marketplace.0.1";
 
 // Must stay in sync with Hosty Core's AppIdPattern (RuntimeAppManifest.cs) and entry.schema.json.
 export const APP_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,62}$/;
 
+// Must stay in sync with entry.schema.json `feeds[].id` pattern.
+export const FEED_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,31}$/;
+
 // Must stay in sync with entry.schema.json `category` enum.
 export const CATEGORIES = ["Media", "Developer Tools", "Productivity", "Networking", "AI", "Utilities", "Other"];
-
-export const ARTIFACT_KINDS = ["image", "source", "prebuilt"];
 
 export function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
@@ -295,36 +295,19 @@ export function discoverMarkdownImageRefs(markdown) {
   return refs;
 }
 
-function compareVersions(a, b) {
-  const parse = (v) => {
-    const [core, pre] = String(v).split("-", 2);
-    const nums = core.split(".").map((n) => Number.parseInt(n, 10) || 0);
-    return { nums, pre };
-  };
-  const pa = parse(a);
-  const pb = parse(b);
-  const len = Math.max(pa.nums.length, pb.nums.length);
-  for (let i = 0; i < len; i++) {
-    const diff = (pa.nums[i] ?? 0) - (pb.nums[i] ?? 0);
-    if (diff !== 0) return diff;
+// The feed the storefront vendors display assets from: the default-flagged feed, else the sole
+// declared one. Several feeds without a default is a loud error — array order carries no meaning,
+// so the tooling must not guess which manifest represents the app. Returns null for no feeds.
+export function resolveVendorFeed(entry) {
+  const feeds = Array.isArray(entry?.feeds) ? entry.feeds : [];
+  if (feeds.length === 0) return null;
+  const flagged = feeds.filter((feed) => feed.default === true);
+  if (flagged.length === 1) return flagged[0];
+  if (flagged.length > 1) {
+    throw new VendorError("more than one feed is marked default: true");
   }
-  // A prerelease sorts below its release (1.0.0-rc < 1.0.0).
-  if (pa.pre && !pb.pre) return -1;
-  if (!pa.pre && pb.pre) return 1;
-  if (pa.pre && pb.pre) return pa.pre < pb.pre ? -1 : pa.pre > pb.pre ? 1 : 0;
-  return 0;
-}
-
-// The manifestRef the storefront should vendor from: the feed's `stable` tag, else the
-// highest listed version. Returns null for an empty/absent feed.
-export function resolveStableManifestRef(feed) {
-  const versions = Array.isArray(feed?.versions) ? feed.versions : [];
-  if (versions.length === 0) return null;
-  const stable = feed.tags?.stable;
-  if (stable) {
-    const hit = versions.find((v) => v.version === stable);
-    if (hit) return hit.manifestRef ?? null;
-  }
-  const highest = [...versions].sort((x, y) => compareVersions(x.version, y.version)).pop();
-  return highest?.manifestRef ?? null;
+  if (feeds.length === 1) return feeds[0];
+  throw new VendorError(
+    "several feeds and none marked default: true — mark one so the storefront knows which manifest to vendor display assets from",
+  );
 }

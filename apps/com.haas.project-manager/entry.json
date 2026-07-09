@@ -7,7 +7,17 @@
     "email": "a.zayats@outlook.com"
   },
   "category": "Productivity",
-  "tags": ["projects", "planning", "time-tracking", "azure-devops"],
-  "releasesUrl": "https://raw.githubusercontent.com/alex-de-haas/project-manager/main/releases.json",
+  "tags": [
+    "projects",
+    "planning",
+    "time-tracking",
+    "azure-devops"
+  ],
+  "feeds": [
+    {
+      "id": "main",
+      "manifestRef": "https://raw.githubusercontent.com/alex-de-haas/project-manager/main/manifest.json"
+    }
+  ],
   "signerIdentity": "github.com/alex-de-haas/project-manager"
 }

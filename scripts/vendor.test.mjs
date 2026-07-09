@@ -18,7 +18,7 @@ import {
   fetchCapped,
   manifestFolderBase,
   resolveContainedRef,
-  resolveStableManifestRef,
+  resolveVendorFeed,
   IMAGE_EXTENSIONS,
 } from "./lib.mjs";
 
@@ -136,16 +136,27 @@ await test("discoverMarkdownImageRefs ignores code blocks and data-src", () => {
   assert.deepEqual(new Set(discoverMarkdownImageRefs(md)), new Set(["./a.png", "./b.png"]));
 });
 
-await test("resolveStableManifestRef prefers the stable tag, else the highest version", () => {
+await test("resolveVendorFeed picks the default, else the sole feed, and never guesses", () => {
+  // Single feed: it is the vendor feed, no flag needed.
+  assert.equal(resolveVendorFeed({ feeds: [{ id: "main", manifestRef: "a" }] }).manifestRef, "a");
+  // Several feeds: the default-flagged one wins, regardless of order.
   assert.equal(
-    resolveStableManifestRef({ versions: [{ version: "0.1.0", manifestRef: "a" }, { version: "0.2.0", manifestRef: "b" }], tags: { stable: "0.1.0" } }),
+    resolveVendorFeed({ feeds: [{ id: "beta", manifestRef: "b" }, { id: "main", manifestRef: "a", default: true }] }).manifestRef,
     "a",
   );
-  assert.equal(
-    resolveStableManifestRef({ versions: [{ version: "0.1.0", manifestRef: "a" }, { version: "0.10.0", manifestRef: "b" }, { version: "0.2.0", manifestRef: "c" }] }),
-    "b",
+  // No feeds: nothing to vendor from.
+  assert.equal(resolveVendorFeed({}), null);
+  assert.equal(resolveVendorFeed({ feeds: [] }), null);
+  // Several feeds without a default is ambiguous — loud failure, not a guess.
+  assert.throws(
+    () => resolveVendorFeed({ feeds: [{ id: "main", manifestRef: "a" }, { id: "beta", manifestRef: "b" }] }),
+    VendorError,
   );
-  assert.equal(resolveStableManifestRef({ versions: [] }), null);
+  // More than one default is a contradiction — loud failure.
+  assert.throws(
+    () => resolveVendorFeed({ feeds: [{ id: "main", manifestRef: "a", default: true }, { id: "beta", manifestRef: "b", default: true }] }),
+    VendorError,
+  );
 });
 
 // --- Local server + capped fetch -----------------------------------------
@@ -225,11 +236,7 @@ await test("generate --vendor vendors manifest assets and a byte-identical descr
   writeFixture(catalogHappy, "apps/com.haas.demo/entry.json", JSON.stringify({
     id: "com.haas.demo",
     name: "Demo",
-    releasesUrl: "feeds/com.haas.demo.json",
-  }));
-  writeFixture(catalogHappy, "feeds/com.haas.demo.json", JSON.stringify({
-    versions: [{ version: "0.1.0", manifestRef: `${origin}/apps/demo/manifest.json` }],
-    tags: { stable: "0.1.0" },
+    feeds: [{ id: "main", manifestRef: `${origin}/apps/demo/manifest.json` }],
   }));
 
   const base = "https://example.test/hosty-catalog";
@@ -258,11 +265,7 @@ await test("generate --vendor fails loudly when a description image escapes the 
   writeFixture(catalogEvil, "apps/com.haas.evil/entry.json", JSON.stringify({
     id: "com.haas.evil",
     name: "Evil",
-    releasesUrl: "feeds/com.haas.evil.json",
-  }));
-  writeFixture(catalogEvil, "feeds/com.haas.evil.json", JSON.stringify({
-    versions: [{ version: "0.1.0", manifestRef: `${origin}/apps/evil/manifest.json` }],
-    tags: { stable: "0.1.0" },
+    feeds: [{ id: "main", manifestRef: `${origin}/apps/evil/manifest.json` }],
   }));
 
   const result = await runGenerate(catalogEvil, "https://example.test");
