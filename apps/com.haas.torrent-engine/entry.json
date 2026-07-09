@@ -7,7 +7,18 @@
     "email": "a.zayats@outlook.com"
   },
   "category": "Networking",
-  "tags": ["torrent", "bittorrent", "vpn", "downloads", "engine"],
-  "releasesUrl": "https://raw.githubusercontent.com/alex-de-haas/torrent-engine/main/releases.json",
+  "tags": [
+    "torrent",
+    "bittorrent",
+    "vpn",
+    "downloads",
+    "engine"
+  ],
+  "feeds": [
+    {
+      "id": "main",
+      "manifestRef": "https://raw.githubusercontent.com/alex-de-haas/torrent-engine/main/manifest.json"
+    }
+  ],
   "signerIdentity": "github.com/alex-de-haas/torrent-engine"
 }

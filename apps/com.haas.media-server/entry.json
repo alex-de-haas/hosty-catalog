@@ -7,7 +7,18 @@
     "email": "a.zayats@outlook.com"
   },
   "category": "Media",
-  "tags": ["media", "streaming", "jellyfin", "movies", "tv"],
-  "releasesUrl": "https://raw.githubusercontent.com/alex-de-haas/media-server/main/releases.json",
+  "tags": [
+    "media",
+    "streaming",
+    "jellyfin",
+    "movies",
+    "tv"
+  ],
+  "feeds": [
+    {
+      "id": "main",
+      "manifestRef": "https://raw.githubusercontent.com/alex-de-haas/media-server/main/manifest.json"
+    }
+  ],
   "signerIdentity": "github.com/alex-de-haas/media-server"
 }

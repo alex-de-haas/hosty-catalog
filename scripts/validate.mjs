@@ -1,14 +1,12 @@
-// Validates every catalog entry (and any repo-hosted feed) before merge. Dependency-free.
+// Validates every catalog entry before merge. Dependency-free.
 // Fails (exit 1) on any error so the PR gate blocks a malformed submission.
 
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import {
   APP_ID_PATTERN,
-  ARTIFACT_KINDS,
   CATEGORIES,
-  FEEDS_DIR,
-  ROOT,
+  FEED_ID_PATTERN,
   isHttpUrl,
   listEntryDirs,
   readJson,
@@ -26,43 +24,41 @@ function resolveLocal(base, ref) {
   return isAbsolute(ref) ? ref : join(base, ref);
 }
 
-function validateFeed(id, feedPath) {
-  let feed;
-  try {
-    feed = readJson(feedPath);
-  } catch (error) {
-    err(id, `feed ${feedPath} is not valid JSON: ${error.message}`);
-    return;
-  }
-
-  if (!Array.isArray(feed.versions) || feed.versions.length === 0) {
-    err(id, "feed.versions must be a non-empty array");
+// Feeds live inline in the entry: named pointers at moving manifest refs. Anything malformed is a
+// hard error (never a silent skip) so a broken feed can't merge and strand installs.
+function validateFeeds(id, feeds) {
+  if (!Array.isArray(feeds) || feeds.length === 0) {
+    err(id, "feeds must be a non-empty array when present");
     return;
   }
 
   const seen = new Set();
-  for (const [index, version] of feed.versions.entries()) {
-    const at = `feed.versions[${index}]`;
-    if (typeof version.version !== "string" || version.version.length === 0) {
-      err(id, `${at}.version is required`);
-    } else if (!seen.add(version.version)) {
-      err(id, `${at}.version '${version.version}' is duplicated`);
+  let defaults = 0;
+  for (const [index, feed] of feeds.entries()) {
+    const at = `feeds[${index}]`;
+    if (!feed || typeof feed !== "object") {
+      err(id, `${at} must be an object`);
+      continue;
     }
-    if (!isHttpUrl(version.manifestRef)) {
-      err(id, `${at}.manifestRef must be an absolute http(s) URL`);
+    if (typeof feed.id !== "string" || !FEED_ID_PATTERN.test(feed.id)) {
+      err(id, `${at}.id must match ${FEED_ID_PATTERN}`);
+    } else if (!seen.add(feed.id)) {
+      err(id, `${at}.id '${feed.id}' is duplicated`);
     }
-    if (version.artifact !== undefined) {
-      if (!ARTIFACT_KINDS.includes(version.artifact.kind)) {
-        err(id, `${at}.artifact.kind must be one of ${ARTIFACT_KINDS.join(", ")}`);
-      }
+    if (!isHttpUrl(feed.manifestRef)) {
+      err(id, `${at}.manifestRef must be an absolute http(s) URL to the app's manifest at a moving ref`);
     }
+    if (feed.default !== undefined && feed.default !== true) {
+      err(id, `${at}.default must be true when present (omit it otherwise)`);
+    }
+    if (feed.default === true) defaults += 1;
   }
 
-  for (const tag of ["stable", "beta"]) {
-    const value = feed.tags?.[tag];
-    if (value !== undefined && !seen.has(value)) {
-      err(id, `feed.tags.${tag} '${value}' does not match any listed version`);
-    }
+  if (defaults > 1) {
+    err(id, "at most one feed may be marked default: true");
+  }
+  if (feeds.length === 1 && defaults === 1) {
+    warn(id, "default: true is redundant on a single feed");
   }
 }
 
@@ -128,21 +124,15 @@ function validateEntry({ id: folder, dir, entryPath }, seenIds) {
     }
   }
 
-  // releasesUrl: relative -> a repo-hosted feed file that must exist and validate; absolute -> http(s).
+  // The removed pinned-feed pointer must not linger: entries carry feeds inline now.
   if (entry.releasesUrl !== undefined) {
-    if (isHttpUrl(entry.releasesUrl)) {
-      // Author-hosted feed; reachability/shape verified at install time, not in CI.
-      warn(folder, `releasesUrl is external (${entry.releasesUrl}) — not validated in CI`);
-    } else {
-      const feedPath = resolveLocal(ROOT, entry.releasesUrl);
-      if (!existsSync(feedPath)) {
-        err(folder, `releasesUrl '${entry.releasesUrl}' points at a missing repo file`);
-      } else {
-        validateFeed(folder, feedPath);
-      }
-    }
+    err(folder, "releasesUrl is no longer supported — declare feeds[] (named moving manifest refs) instead");
+  }
+
+  if (entry.feeds !== undefined) {
+    validateFeeds(folder, entry.feeds);
   } else {
-    warn(folder, "no releasesUrl — the app will show no installable versions in the storefront");
+    warn(folder, "no feeds — the app will not be installable from the storefront");
   }
 }
 
@@ -155,29 +145,6 @@ function main() {
   const seenIds = new Set();
   for (const entry of entries) {
     validateEntry(entry, seenIds);
-  }
-
-  // Also fail on an orphan feed that no entry references (avoids dead files / typos).
-  const referenced = new Set(
-    entries
-      .map((entry) => {
-        try {
-          return readJson(entry.entryPath).releasesUrl;
-        } catch {
-          return undefined;
-        }
-      })
-      .filter((value) => value && !isHttpUrl(value))
-      .map((value) => join(ROOT, value)),
-  );
-  try {
-    for (const file of readdirSync(FEEDS_DIR)) {
-      if (file.endsWith(".json") && !referenced.has(join(FEEDS_DIR, file))) {
-        warnings.push(`feeds/${file}: not referenced by any entry`);
-      }
-    }
-  } catch {
-    // no feeds/ dir — fine
   }
 
   for (const warning of warnings) {

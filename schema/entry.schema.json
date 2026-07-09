@@ -60,10 +60,32 @@
         }
       }
     },
-    "releasesUrl": {
-      "type": "string",
-      "description": "The per-app version feed: a repo-relative path (e.g. feeds/<id>.json, rewritten at publish) or an absolute https URL to an author-hosted feed.",
-      "minLength": 1
+    "feeds": {
+      "type": "array",
+      "description": "The app's update feeds. A feed is a named pointer at a moving manifest ref (e.g. a branch raw URL): releasing = pushing to that ref, so this entry changes only when feed topology changes — never per release. The manifest's own `version` is informational display metadata; update detection compares content digests.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "manifestRef"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Author-defined feed name (e.g. main, beta).",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"
+          },
+          "manifestRef": {
+            "type": "string",
+            "description": "Absolute https URL to the app's manifest.json at a moving ref (typically a branch raw URL).",
+            "format": "uri",
+            "pattern": "^https?://"
+          },
+          "default": {
+            "type": "boolean",
+            "description": "Marks the feed quick-install uses when several are declared. At most one per entry; meaningless (and unnecessary) with a single feed. Feed array order carries no meaning."
+          }
+        }
+      }
     },
     "signerIdentity": {
       "type": "string",

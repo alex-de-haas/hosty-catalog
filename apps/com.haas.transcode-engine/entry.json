@@ -7,7 +7,18 @@
     "email": "a.zayats@outlook.com"
   },
   "category": "Media",
-  "tags": ["transcode", "ffmpeg", "video", "hardware-acceleration", "engine"],
-  "releasesUrl": "https://raw.githubusercontent.com/alex-de-haas/transcode-engine/main/releases.json",
+  "tags": [
+    "transcode",
+    "ffmpeg",
+    "video",
+    "hardware-acceleration",
+    "engine"
+  ],
+  "feeds": [
+    {
+      "id": "main",
+      "manifestRef": "https://raw.githubusercontent.com/alex-de-haas/transcode-engine/main/manifest.json"
+    }
+  ],
   "signerIdentity": "github.com/alex-de-haas/transcode-engine"
 }

@@ -5,7 +5,8 @@ The official marketplace catalog for [Hosty](https://github.com/alex-de-haas/doc
 It is a **discovery + trust index over existing transport** — not a new way to ship apps. Every entry
 holds **metadata and pointers only**; an app's manifest and artifact live in the author's own
 repo/registry. The catalog never contains app code. Adding an app is a reviewed pull request; new
-**versions** of an already-listed app flow through an author-owned feed with no catalog PR.
+**releases** of an already-listed app flow through its feeds — named pointers at moving manifest refs
+(typically branch raw URLs) — so releasing is just pushing to the branch, with no catalog PR.
 
 Schema: `marketplace.0.1`. Zero servers — a Git repo plus GitHub Actions that publish a single
 `catalog.json` to GitHub Pages.
@@ -20,7 +21,7 @@ HOSTY_CATALOG_SOURCES=https://alex-de-haas.github.io/hosty-catalog/catalog.json
 ```
 
 Core exposes `GET /api/catalog/apps` and `/api/catalog/apps/{id}` (host-admin, read-only) and the Shell
-renders them under **Marketplace**. Installing a version hands its `manifestRef` to Core's existing
+renders them under **Marketplace**. Installing from a feed hands its `manifestRef` to Core's existing
 reviewed install flow — the catalog installs nothing itself. The marketplace is opt-in: with no source
 configured the storefront is simply empty, and nothing changes for apps installed by other means.
 
@@ -28,11 +29,10 @@ configured the storefront is simply empty, and nothing changes for apps installe
 
 ```
 apps/<reverse-dns-id>/
-  entry.json          # the catalog entry (metadata + pointers) — see schema/entry.schema.json
+  entry.json          # the catalog entry (metadata + feeds) — see schema/entry.schema.json
   assets/             # optional hand-hosted icon/screenshots (prefer manifest catalogMetadata — see Display assets)
-feeds/<id>.json       # optional repo-hosted version feed (authors may host their own instead)
 catalog.source.json   # this source's display metadata (name/description/url)
-schema/               # marketplace.0.1 JSON Schemas (entry / catalog / feed)
+schema/               # marketplace.0.1 JSON Schemas (entry / catalog)
 scripts/              # generate-catalog.mjs, validate.mjs, vendor.test.mjs (dependency-free Node)
 ```
 
@@ -44,10 +44,10 @@ Open the [**Submit an app**](../../issues/new?template=app-submission.yml) issue
 
 1. Create `apps/<reverse-dns-id>/entry.json`. The `id` must match your manifest's id, the reverse-DNS
    format `^[a-z0-9][a-z0-9._-]{0,62}$`, and the folder name.
-2. Point `releasesUrl` at your version feed (an https URL you host, or a repo-relative `feeds/<id>.json`
-   here). Provide display assets — **preferably from your app repo** (see [Display assets](#display-assets)).
-3. Open a PR. CI validates the entry (and any repo-hosted feed); a maintainer reviews the capabilities,
-   external mounts, and publisher identity declared by your manifest — a one-time trust gate.
+2. Declare `feeds` — named pointers at your manifest at a moving ref (typically a branch raw URL).
+   Provide display assets — **preferably from your app repo** (see [Display assets](#display-assets)).
+3. Open a PR. CI validates the entry; a maintainer reviews the capabilities, external mounts, and
+   publisher identity declared by your manifest — a one-time trust gate.
 
 Minimal entry:
 
@@ -59,28 +59,29 @@ Minimal entry:
   "category": "Productivity",
   "tags": ["notes"],
   "display": { "summary": "Take notes.", "icon": "assets/icon.svg" },
-  "releasesUrl": "https://example.com/hosty/releases.json"
+  "feeds": [{ "id": "main", "manifestRef": "https://raw.githubusercontent.com/example/notes/main/manifest.json" }]
 }
 ```
 
-### The version feed (releases without a catalog PR)
+### Feeds (releases without a catalog PR)
 
-`releasesUrl` points at an author-owned feed. New releases land there, so you never PR the catalog for a
-version bump. The feed is **runtime-agnostic** — a version points at a manifest and carries an optional,
-discriminated artifact identity (image digest / source commit / prebuilt hash), so `docker` and
-`localCommand`/source apps are both first-class:
+A **feed** is a named pointer at your manifest at a **moving ref** — releasing is pushing to that ref,
+so the catalog is never PRed for a release. The manifest's own `version` is informational display
+metadata; Hosty detects updates by comparing **content digests** (manifest and artifact), so a
+forgotten version bump never blocks delivery. Declare several feeds for several tracks and mark the
+one quick-install should use:
 
 ```json
-{
-  "versions": [
-    { "version": "0.3.1", "manifestRef": "https://example.com/app/0.3.1/manifest.json", "artifact": { "kind": "image", "imageDigest": "sha256:…" } },
-    { "version": "1.4.0", "manifestRef": "https://example.com/app/manifest.json", "artifact": { "kind": "source", "commit": "abc123", "ref": "refs/tags/v1.4.0" } }
-  ],
-  "tags": { "stable": "0.3.1" }
-}
+"feeds": [
+  { "id": "main", "manifestRef": "https://raw.githubusercontent.com/example/notes/main/manifest.json", "default": true },
+  { "id": "beta", "manifestRef": "https://raw.githubusercontent.com/example/notes/develop/manifest.json" }
+]
 ```
 
-`artifact` is optional — Core re-resolves it at install from the manifest's declared runtime.
+`default: true` is required only when several feeds are declared (at most one; feed order carries no
+meaning). Feed quality is the author's responsibility: a broken branch can't ship a docker image (the
+build fails, the last published image stays current), and source runtimes are gated by your own CI.
+Rolling back a bad release is `git revert` — the changed head surfaces as a normal update.
 
 ## Display assets
 
@@ -96,7 +97,7 @@ under `catalogMetadata`, alongside the code they describe:
 }
 ```
 
-At publish, the catalog fetches your manifest (at the feed's `stable` version), then **vendors** the
+At publish, the catalog fetches your manifest (at the default-or-sole feed's head), then **vendors** the
 declared assets — icon, screenshots, and the `descriptionFile` plus every relative image it references —
 into the published site under `apps/<id>/vendored/…`. This keeps the storefront self-contained and frozen
 at review time (no hotlinking to mutable author URLs), while you keep editing assets in your own repo.
@@ -116,10 +117,10 @@ overrides the manifest (curation wins) — but it is discouraged for apps that h
 Dependency-free (Node 18+). No install step:
 
 ```bash
-node scripts/validate.mjs      # validate every entry + repo-hosted feed (the PR gate)
+node scripts/validate.mjs      # validate every entry (the PR gate)
 node scripts/vendor.test.mjs   # test the generator + vendoring helpers
 node scripts/generate-catalog.mjs --base-url=https://alex-de-haas.github.io/hosty-catalog
-# → dist/catalog.json + copied assets/feeds/schema + a landing page (offline; entry.display only)
+# → dist/catalog.json + copied assets/schema + a landing page (offline; entry.display only)
 
 node scripts/generate-catalog.mjs --vendor --base-url=…   # full build: also vendor manifest assets (hits the network)
 ```
@@ -137,7 +138,7 @@ targets (SSRF defense-in-depth). To self-check against a **localhost** fixture s
 `.github/workflows/validate.yml` gates every PR: it validates entries, runs the tooling tests, and does an
 **offline** generate build check (no `--vendor`, so an unrelated PR is never blocked by another app repo's
 state). On merge to `main`, `.github/workflows/publish.yml` regenerates `catalog.json` **with `--vendor`**
-— rewriting relative feed/asset paths to absolute `https://<owner>.github.io/<repo>/…` URLs and vendoring
+— rewriting relative asset paths to absolute `https://<owner>.github.io/<repo>/…` URLs and vendoring
 each app's manifest-level display assets (see [Display assets](#display-assets)) — then deploys `dist/` to
 GitHub Pages. Vendoring fails the build on any declared-asset problem; a failed build leaves the last good
 deploy live. Enable Pages once under **Settings → Pages → Source: GitHub Actions**.
@@ -145,9 +146,11 @@ deploy live. Enable Pages once under **Settings → Pages → Source: GitHub Act
 ## Trust
 
 The catalog vouches for a publisher's signing identity once (the reviewed membership PR); an entry
-records it as `signerIdentity`. Cryptographic verification of the index and feeds (ECDsa P-256) is a
-planned follow-up — until then trust rests on the PR review plus Core's install-time review of the
-manifest's capabilities and mounts.
+records it as `signerIdentity`. Cryptographic verification of the index (ECDsa P-256) is a planned
+follow-up — until then trust rests on the PR review plus Core's install-time review of the manifest's
+capabilities and mounts. Feeds move *where the pointer points*, not *who is trusted*: the entry (and
+its feed refs) is PR-gated; what the author pushes behind a ref is theirs, exactly like the registry
+image behind a tag.
 
 ## See also
 

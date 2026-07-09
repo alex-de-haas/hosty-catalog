@@ -1,17 +1,17 @@
-// Builds the published storefront from the entries: dist/catalog.json plus the assets/feeds/schema it
+// Builds the published storefront from the entries: dist/catalog.json plus the assets/schema it
 // references, ready to upload to GitHub Pages. Dependency-free.
 //
-// Relative `display.icon`/`display.screenshots` (resolved against the entry folder) and a relative
-// `releasesUrl` (resolved against the repo root) are rewritten to absolute URLs under --base-url so a
-// browser and Hosty Core can fetch them. Absolute http(s) refs are left untouched.
+// Relative `display.icon`/`display.screenshots` (resolved against the entry folder) are rewritten to
+// absolute URLs under --base-url so a browser and Hosty Core can fetch them. Absolute http(s) refs
+// are left untouched. Feeds pass through as-is: they are absolute moving manifest refs by contract.
 //
-// With --vendor, the generator additionally fetches each app's manifest (at its feed's stable version)
-// and vendors the manifest-level display assets it declares — icon, screenshots, and a markdown
-// descriptionFile plus the images that description references — into dist/apps/<id>/vendored/, so the
-// app repository is the source of truth while the published storefront stays self-contained (no
-// hotlinking). A hand-authored entry.display field overrides the manifest (curation wins). Vendoring
-// hits the network and fails loudly, so it is opt-in: CI's build check runs without it, and publish
-// runs with it. See README "Publishing".
+// With --vendor, the generator additionally fetches each app's manifest (at its vendor feed's head —
+// the default-flagged feed, else the sole one) and vendors the manifest-level display assets it
+// declares — icon, screenshots, and a markdown descriptionFile plus the images that description
+// references — into dist/apps/<id>/vendored/, so the app repository is the source of truth while the
+// published storefront stays self-contained (no hotlinking). A hand-authored entry.display field
+// overrides the manifest (curation wins). Vendoring hits the network and fails loudly, so it is
+// opt-in: CI's build check runs without it, and publish runs with it. See README "Publishing".
 
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
@@ -19,7 +19,6 @@ import {
   APPS_DIR,
   DESCRIPTION_EXTENSIONS,
   DESCRIPTION_MAX_BYTES,
-  FEEDS_DIR,
   ICON_MAX_BYTES,
   IMAGE_EXTENSIONS,
   IMAGE_MAX_BYTES,
@@ -38,7 +37,7 @@ import {
   manifestFolderBase,
   readJson,
   resolveContainedRef,
-  resolveStableManifestRef,
+  resolveVendorFeed,
 } from "./lib.mjs";
 
 const DIST = join(ROOT, "dist");
@@ -50,25 +49,10 @@ function parseBaseUrl() {
   return raw.replace(/\/+$/, "");
 }
 
-// Reads an entry's feed to resolve the manifest the storefront should vendor from.
-// The feed is either a repo-relative file (feeds/<id>.json) or an author-hosted https URL.
-async function loadStableManifestRef(entry) {
-  const releasesUrl = entry.releasesUrl;
-  if (releasesUrl === undefined) return null;
-  let feed;
-  if (isHttpUrl(releasesUrl)) {
-    feed = JSON.parse((await fetchCapped(releasesUrl, MANIFEST_MAX_BYTES)).toString("utf8"));
-  } else {
-    // A repo-relative feed must stay inside the repo — a crafted entry must not read arbitrary
-    // files (e.g. releasesUrl: "../../etc/passwd") off the build machine.
-    const feedPath = join(ROOT, releasesUrl);
-    if (feedPath !== ROOT && !feedPath.startsWith(ROOT + sep)) {
-      throw new VendorError(`releasesUrl '${releasesUrl}' escapes the repository root`);
-    }
-    if (!existsSync(feedPath)) return null;
-    feed = readJson(feedPath);
-  }
-  return resolveStableManifestRef(feed);
+// The manifest the storefront vendors from: the entry's default-or-sole feed's moving ref.
+// No network needed to resolve it — the ref lives inline in the entry.
+function loadVendorManifestRef(entry) {
+  return resolveVendorFeed(entry)?.manifestRef ?? null;
 }
 
 // Tracks a single app's vendoring budget and writes fetched bytes under dist/apps/<id>/vendored/.
@@ -178,7 +162,7 @@ async function buildApp({ id, entryPath }, { base, vendor }) {
   if (vendor) {
     let manifestRef;
     try {
-      manifestRef = await loadStableManifestRef(entry);
+      manifestRef = loadVendorManifestRef(entry);
     } catch (error) {
       throw new VendorError(`${id}: could not resolve a manifest to vendor from: ${error.message}`);
     }
@@ -203,13 +187,9 @@ async function buildApp({ id, entryPath }, { base, vendor }) {
   if (screenshots !== undefined) display.screenshots = screenshots;
   if (descriptionUrl !== undefined) display.descriptionUrl = descriptionUrl;
 
-  const releasesUrl =
-    entry.releasesUrl === undefined || isHttpUrl(entry.releasesUrl) ? entry.releasesUrl : abs(entry.releasesUrl);
-
   return {
     ...entry,
     ...(Object.keys(display).length > 0 ? { display } : {}),
-    ...(releasesUrl ? { releasesUrl } : {}),
   };
 }
 
@@ -221,12 +201,9 @@ async function main() {
   rmSync(DIST, { recursive: true, force: true });
   mkdirSync(DIST, { recursive: true });
 
-  // Copy the hand-hosted assets/feeds/schema the catalog points at (vendored/ is written on top).
+  // Copy the hand-hosted assets/schema the catalog points at (vendored/ is written on top).
   // Exclude only files named exactly entry.json — not e.g. a legitimate asset like custom-entry.json.
   cpSync(APPS_DIR, join(DIST, "apps"), { recursive: true, filter: (src) => src.split(sep).pop() !== "entry.json" });
-  if (existsSync(FEEDS_DIR)) {
-    cpSync(FEEDS_DIR, join(DIST, "feeds"), { recursive: true });
-  }
   if (existsSync(join(ROOT, "schema"))) {
     cpSync(join(ROOT, "schema"), join(DIST, "schema"), { recursive: true });
   }
