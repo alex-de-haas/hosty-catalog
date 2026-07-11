@@ -46,11 +46,11 @@ body:
     validations:
       required: true
   - type: input
-    id: releases-url
+    id: feeds-url
     attributes:
-      label: Release feed URL (releasesUrl)
-      description: An https URL to your version feed (marketplace.0.1). See schema/feed.schema.json.
-      placeholder: https://example.com/hosty/releases.json
+      label: Feeds URL (feedsUrl)
+      description: An https URL to your app repository's feeds.json (app-feeds.0.1) — named pointers at your manifest at moving refs. See the README "Feeds" section.
+      placeholder: https://raw.githubusercontent.com/example/notes/main/feeds.json
     validations:
       required: true
   - type: input
