@@ -14,11 +14,6 @@
     "downloads",
     "engine"
   ],
-  "feeds": [
-    {
-      "id": "main",
-      "manifestRef": "https://raw.githubusercontent.com/alex-de-haas/torrent-engine/main/manifest.json"
-    }
-  ],
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/torrent-engine/main/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/torrent-engine"
 }

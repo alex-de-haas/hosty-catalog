@@ -5,34 +5,37 @@ The official marketplace catalog for [Hosty](https://github.com/alex-de-haas/doc
 It is a **discovery + trust index over existing transport** — not a new way to ship apps. Every entry
 holds **metadata and pointers only**; an app's manifest and artifact live in the author's own
 repo/registry. The catalog never contains app code. Adding an app is a reviewed pull request; new
-**releases** of an already-listed app flow through its feeds — named pointers at moving manifest refs
-(typically branch raw URLs) — so releasing is just pushing to the branch, with no catalog PR.
+**releases** of an already-listed app flow through its **feeds** — named pointers at moving manifest
+refs (typically branch raw URLs) that the app owns in its own `feeds.json` — so releasing is just
+pushing to the branch, with no catalog PR. The entry only points at that file via `feedsUrl`.
 
-Schema: `marketplace.0.1`. Zero servers — a Git repo plus GitHub Actions that publish a single
+Schema: `marketplace.0.2`. Zero servers — a Git repo plus GitHub Actions that publish a single
 `catalog.json` to GitHub Pages.
 
 ## How Hosty consumes it
 
-Hosty Core reads one or more catalog sources and serves the storefront to the Shell:
+The optional first-party **`hosty.marketplace`** system app reads one catalog source and serves the
+storefront to the Shell:
 
 ```bash
-# Point Core at the published index (comma-separated, highest priority first):
-HOSTY_CATALOG_SOURCES=https://alex-de-haas.github.io/hosty-catalog/catalog.json
+# The Marketplace app's single source setting (its official default is this catalog):
+HOSTY_MARKETPLACE_SOURCE_URL=https://alex-de-haas.github.io/hosty-catalog/catalog.json
 ```
 
-Core exposes `GET /api/catalog/apps` and `/api/catalog/apps/{id}` (host-admin, read-only) and the Shell
-renders them under **Marketplace**. Installing from a feed hands its `manifestRef` to Core's existing
-reviewed install flow — the catalog installs nothing itself. The marketplace is opt-in: with no source
-configured the storefront is simply empty, and nothing changes for apps installed by other means.
+The Shell renders the storefront under **Marketplace**. Choosing an app hands its `feedsUrl` to the
+Shell, which opens Core's existing reviewed install flow: Core independently fetches and validates the
+app's `feeds.json`, resolves the selected feed's manifest, and installs it — the catalog and the
+Marketplace app install nothing themselves. The marketplace is opt-in: with no source configured the
+storefront is simply empty, and nothing changes for apps installed by other means.
 
 ## Repository layout
 
 ```
 apps/<reverse-dns-id>/
-  entry.json          # the catalog entry (metadata + feeds) — see schema/entry.schema.json
+  entry.json          # the catalog entry (metadata + feedsUrl) — see schema/entry.schema.json
   assets/             # optional hand-hosted icon/screenshots (prefer manifest catalogMetadata — see Display assets)
 catalog.source.json   # this source's display metadata (name/description/url)
-schema/               # marketplace.0.1 JSON Schemas (entry / catalog)
+schema/               # marketplace.0.2 JSON Schemas (entry / catalog)
 scripts/              # generate-catalog.mjs, validate.mjs, vendor.test.mjs (dependency-free Node)
 ```
 
@@ -44,8 +47,9 @@ Open the [**Submit an app**](../../issues/new?template=app-submission.yml) issue
 
 1. Create `apps/<reverse-dns-id>/entry.json`. The `id` must match your manifest's id, the reverse-DNS
    format `^[a-z0-9][a-z0-9._-]{0,62}$`, and the folder name.
-2. Declare `feeds` — named pointers at your manifest at a moving ref (typically a branch raw URL).
-   Provide display assets — **preferably from your app repo** (see [Display assets](#display-assets)).
+2. Declare `feedsUrl` — the absolute URL of your app repository's `feeds.json` (the app owns its
+   feeds; see [Feeds](#feeds-releases-without-a-catalog-pr)). Provide display assets — **preferably
+   from your app repo** (see [Display assets](#display-assets)).
 3. Open a PR. CI validates the entry; a maintainer reviews the capabilities, external mounts, and
    publisher identity declared by your manifest — a one-time trust gate.
 
@@ -59,25 +63,31 @@ Minimal entry:
   "category": "Productivity",
   "tags": ["notes"],
   "display": { "summary": "Take notes.", "icon": "assets/icon.svg" },
-  "feeds": [{ "id": "main", "manifestRef": "https://raw.githubusercontent.com/example/notes/main/manifest.json" }]
+  "feedsUrl": "https://raw.githubusercontent.com/example/notes/main/feeds.json"
 }
 ```
 
 ### Feeds (releases without a catalog PR)
 
-A **feed** is a named pointer at your manifest at a **moving ref** — releasing is pushing to that ref,
-so the catalog is never PRed for a release. The manifest's own `version` is informational display
-metadata; Hosty detects updates by comparing **content digests** (manifest and artifact), so a
-forgotten version bump never blocks delivery. Declare several feeds for several tracks and mark the
-one quick-install should use:
+Your app **owns its feeds** in a `feeds.json` (schema `app-feeds.0.1`) in its own repository; the
+catalog entry only points at it via `feedsUrl`. A **feed** is a named pointer at your manifest at a
+**moving ref** — releasing is pushing to that ref, so the catalog is never PRed for a release. The
+manifest's own `version` is informational display metadata; Hosty detects updates by comparing
+**content digests** (manifest and artifact), so a forgotten version bump never blocks delivery.
+Declare several feeds for several tracks and mark the one quick-install should use:
 
 ```json
-"feeds": [
-  { "id": "main", "manifestRef": "https://raw.githubusercontent.com/example/notes/main/manifest.json", "default": true },
-  { "id": "beta", "manifestRef": "https://raw.githubusercontent.com/example/notes/develop/manifest.json" }
-]
+{
+  "schemaVersion": "app-feeds.0.1",
+  "appId": "com.example.notes",
+  "feeds": [
+    { "id": "main", "manifestRef": "https://raw.githubusercontent.com/example/notes/main/manifest.json", "default": true },
+    { "id": "beta", "manifestRef": "https://raw.githubusercontent.com/example/notes/develop/manifest.json" }
+  ]
+}
 ```
 
+The feed document's `appId` must equal your manifest's id (Core rejects a mismatch at install).
 `default: true` is required only when several feeds are declared (at most one; feed order carries no
 meaning). Feed quality is the author's responsibility: a broken branch can't ship a docker image (the
 build fails, the last published image stays current), and source runtimes are gated by your own CI.

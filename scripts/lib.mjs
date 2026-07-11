@@ -11,13 +11,14 @@ export const ROOT = process.env.CATALOG_ROOT
   : resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const APPS_DIR = join(ROOT, "apps");
 
-export const SCHEMA_VERSION = "marketplace.0.1";
+export const SCHEMA_VERSION = "marketplace.0.2";
+
+// The app-owned feeds document (feeds.json) schema the catalog entry's feedsUrl points at.
+export const FEEDS_SCHEMA_VERSION = "app-feeds.0.1";
+export const FEEDS_DOC_MAX_BYTES = 1 * 1024 * 1024;
 
 // Must stay in sync with Hosty Core's AppIdPattern (RuntimeAppManifest.cs) and entry.schema.json.
 export const APP_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,62}$/;
-
-// Must stay in sync with entry.schema.json `feeds[].id` pattern.
-export const FEED_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,31}$/;
 
 // Must stay in sync with entry.schema.json `category` enum.
 export const CATEGORIES = ["Media", "Developer Tools", "Productivity", "Networking", "AI", "Utilities", "Other"];
@@ -298,16 +299,47 @@ export function discoverMarkdownImageRefs(markdown) {
 // The feed the storefront vendors display assets from: the default-flagged feed, else the sole
 // declared one. Several feeds without a default is a loud error — array order carries no meaning,
 // so the tooling must not guess which manifest represents the app. Returns null for no feeds.
-export function resolveVendorFeed(entry) {
-  const feeds = Array.isArray(entry?.feeds) ? entry.feeds : [];
-  if (feeds.length === 0) return null;
-  const flagged = feeds.filter((feed) => feed.default === true);
+export function selectDefaultFeed(feeds) {
+  const list = Array.isArray(feeds) ? feeds : [];
+  if (list.length === 0) return null;
+  const flagged = list.filter((feed) => feed && feed.default === true);
   if (flagged.length === 1) return flagged[0];
   if (flagged.length > 1) {
     throw new VendorError("more than one feed is marked default: true");
   }
-  if (feeds.length === 1) return feeds[0];
+  if (list.length === 1) return list[0];
   throw new VendorError(
     "several feeds and none marked default: true — mark one so the storefront knows which manifest to vendor display assets from",
   );
+}
+
+// Resolve the manifestRef the storefront vendors an app's display assets from. Feeds now live in the
+// app repository's feeds.json (app-feeds.0.1); the entry only points at it via feedsUrl. Fetch that
+// document, validate its shape, and pick its default/sole feed. Returns null when the entry declares
+// no feedsUrl. Throws VendorError (loud, non-retried) on a malformed/ambiguous feeds document.
+export async function resolveVendorManifestRef(entry, { fetchImpl = fetch } = {}) {
+  const feedsUrl = entry?.feedsUrl;
+  if (!isHttpUrl(feedsUrl)) {
+    return null;
+  }
+
+  const raw = await fetchCapped(feedsUrl, FEEDS_DOC_MAX_BYTES, { fetchImpl });
+  let doc;
+  try {
+    doc = JSON.parse(raw.toString("utf8"));
+  } catch (error) {
+    throw new VendorError(`feeds document '${feedsUrl}' is not valid JSON: ${error.message}`);
+  }
+  if (!doc || typeof doc !== "object") {
+    throw new VendorError(`feeds document '${feedsUrl}' is not a JSON object`);
+  }
+  if (doc.schemaVersion !== FEEDS_SCHEMA_VERSION) {
+    throw new VendorError(`feeds document '${feedsUrl}' must declare schemaVersion '${FEEDS_SCHEMA_VERSION}'`);
+  }
+
+  const feed = selectDefaultFeed(doc.feeds);
+  if (feed && !isHttpUrl(feed.manifestRef)) {
+    throw new VendorError(`feeds document '${feedsUrl}' default feed manifestRef must be an absolute http(s) URL`);
+  }
+  return feed?.manifestRef ?? null;
 }

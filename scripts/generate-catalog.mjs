@@ -3,10 +3,11 @@
 //
 // Relative `display.icon`/`display.screenshots` (resolved against the entry folder) are rewritten to
 // absolute URLs under --base-url so a browser and Hosty Core can fetch them. Absolute http(s) refs
-// are left untouched. Feeds pass through as-is: they are absolute moving manifest refs by contract.
+// are left untouched. `feedsUrl` passes through as-is: it is an absolute URL by contract.
 //
-// With --vendor, the generator additionally fetches each app's manifest (at its vendor feed's head —
-// the default-flagged feed, else the sole one) and vendors the manifest-level display assets it
+// With --vendor, the generator additionally fetches the app's feeds.json (via the entry's feedsUrl),
+// picks its vendor feed (the default-flagged feed, else the sole one), fetches that manifest, and
+// vendors the manifest-level display assets it
 // declares — icon, screenshots, and a markdown descriptionFile plus the images that description
 // references — into dist/apps/<id>/vendored/, so the app repository is the source of truth while the
 // published storefront stays self-contained (no hotlinking). A hand-authored entry.display field
@@ -37,7 +38,7 @@ import {
   manifestFolderBase,
   readJson,
   resolveContainedRef,
-  resolveVendorFeed,
+  resolveVendorManifestRef,
 } from "./lib.mjs";
 
 const DIST = join(ROOT, "dist");
@@ -47,12 +48,6 @@ function parseBaseUrl() {
   const arg = process.argv.find((value) => value.startsWith("--base-url="));
   const raw = (arg ? arg.slice("--base-url=".length) : process.env.CATALOG_BASE_URL) ?? "";
   return raw.replace(/\/+$/, "");
-}
-
-// The manifest the storefront vendors from: the entry's default-or-sole feed's moving ref.
-// No network needed to resolve it — the ref lives inline in the entry.
-function loadVendorManifestRef(entry) {
-  return resolveVendorFeed(entry)?.manifestRef ?? null;
 }
 
 // Tracks a single app's vendoring budget and writes fetched bytes under dist/apps/<id>/vendored/.
@@ -162,7 +157,7 @@ async function buildApp({ id, entryPath }, { base, vendor }) {
   if (vendor) {
     let manifestRef;
     try {
-      manifestRef = loadVendorManifestRef(entry);
+      manifestRef = await resolveVendorManifestRef(entry);
     } catch (error) {
       throw new VendorError(`${id}: could not resolve a manifest to vendor from: ${error.message}`);
     }
@@ -237,7 +232,7 @@ function landingPage(catalog, base) {
   <body>
     <h1>Hosty Catalog</h1>
     <p>Machine-readable index: <a href="${base ? `${base}/catalog.json` : "catalog.json"}">catalog.json</a> (schema <code>${escapeHtml(catalog.schemaVersion)}</code>).</p>
-    <p>Point Hosty Core at it with <code>HOSTY_CATALOG_SOURCES</code>.</p>
+    <p>Point the Hosty Marketplace app at it with <code>HOSTY_MARKETPLACE_SOURCE_URL</code>.</p>
     <h2>${catalog.apps.length} app(s)</h2>
     <ul>
       ${rows || "<li>(none yet)</li>"}

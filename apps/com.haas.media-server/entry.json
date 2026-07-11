@@ -14,11 +14,6 @@
     "movies",
     "tv"
   ],
-  "feeds": [
-    {
-      "id": "main",
-      "manifestRef": "https://raw.githubusercontent.com/alex-de-haas/media-server/main/manifest.json"
-    }
-  ],
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/media-server/main/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/media-server"
 }

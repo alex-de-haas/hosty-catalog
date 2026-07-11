@@ -14,11 +14,6 @@
     "hardware-acceleration",
     "engine"
   ],
-  "feeds": [
-    {
-      "id": "main",
-      "manifestRef": "https://raw.githubusercontent.com/alex-de-haas/transcode-engine/main/manifest.json"
-    }
-  ],
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/transcode-engine/main/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/transcode-engine"
 }

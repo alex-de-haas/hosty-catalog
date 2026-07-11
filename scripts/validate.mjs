@@ -6,7 +6,6 @@ import { isAbsolute, join } from "node:path";
 import {
   APP_ID_PATTERN,
   CATEGORIES,
-  FEED_ID_PATTERN,
   isHttpUrl,
   listEntryDirs,
   readJson,
@@ -22,44 +21,6 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function resolveLocal(base, ref) {
   // A repo-relative ref (not http, not absolute path) resolves against `base`.
   return isAbsolute(ref) ? ref : join(base, ref);
-}
-
-// Feeds live inline in the entry: named pointers at moving manifest refs. Anything malformed is a
-// hard error (never a silent skip) so a broken feed can't merge and strand installs.
-function validateFeeds(id, feeds) {
-  if (!Array.isArray(feeds) || feeds.length === 0) {
-    err(id, "feeds must be a non-empty array when present");
-    return;
-  }
-
-  const seen = new Set();
-  let defaults = 0;
-  for (const [index, feed] of feeds.entries()) {
-    const at = `feeds[${index}]`;
-    if (!feed || typeof feed !== "object") {
-      err(id, `${at} must be an object`);
-      continue;
-    }
-    if (typeof feed.id !== "string" || !FEED_ID_PATTERN.test(feed.id)) {
-      err(id, `${at}.id must match ${FEED_ID_PATTERN}`);
-    } else if (!seen.add(feed.id)) {
-      err(id, `${at}.id '${feed.id}' is duplicated`);
-    }
-    if (!isHttpUrl(feed.manifestRef)) {
-      err(id, `${at}.manifestRef must be an absolute http(s) URL to the app's manifest at a moving ref`);
-    }
-    if (feed.default !== undefined && feed.default !== true) {
-      err(id, `${at}.default must be true when present (omit it otherwise)`);
-    }
-    if (feed.default === true) defaults += 1;
-  }
-
-  if (defaults > 1) {
-    err(id, "at most one feed may be marked default: true");
-  }
-  if (feeds.length === 1 && defaults === 1) {
-    warn(id, "default: true is redundant on a single feed");
-  }
 }
 
 function validateEntry({ id: folder, dir, entryPath }, seenIds) {
@@ -124,15 +85,21 @@ function validateEntry({ id: folder, dir, entryPath }, seenIds) {
     }
   }
 
-  // The removed pinned-feed pointer must not linger: entries carry feeds inline now.
+  // Legacy pointers must not linger: feeds now live in the app repository's feeds.json, referenced
+  // from the entry by feedsUrl.
   if (entry.releasesUrl !== undefined) {
-    err(folder, "releasesUrl is no longer supported — declare feeds[] (named moving manifest refs) instead");
+    err(folder, "releasesUrl is no longer supported — declare feedsUrl (the app repository's feeds.json) instead");
+  }
+  if (entry.feeds !== undefined) {
+    err(folder, "inline feeds[] moved to the app repository's feeds.json (app-feeds.0.1) — declare feedsUrl instead");
   }
 
-  if (entry.feeds !== undefined) {
-    validateFeeds(folder, entry.feeds);
+  if (entry.feedsUrl !== undefined) {
+    if (!isHttpUrl(entry.feedsUrl)) {
+      err(folder, "feedsUrl must be an absolute http(s) URL to the app's feeds.json");
+    }
   } else {
-    warn(folder, "no feeds — the app will not be installable from the storefront");
+    warn(folder, "no feedsUrl — the app will not be installable from the storefront");
   }
 }
 

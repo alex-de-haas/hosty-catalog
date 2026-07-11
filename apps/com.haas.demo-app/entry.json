@@ -17,11 +17,6 @@
     "icon": "assets/icon.svg",
     "screenshots": []
   },
-  "feeds": [
-    {
-      "id": "main",
-      "manifestRef": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/demo-app/manifest.json"
-    }
-  ],
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/demo-app/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/hosty-catalog"
 }

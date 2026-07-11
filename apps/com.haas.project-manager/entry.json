@@ -13,11 +13,6 @@
     "time-tracking",
     "azure-devops"
   ],
-  "feeds": [
-    {
-      "id": "main",
-      "manifestRef": "https://raw.githubusercontent.com/alex-de-haas/project-manager/main/manifest.json"
-    }
-  ],
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/project-manager/main/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/project-manager"
 }

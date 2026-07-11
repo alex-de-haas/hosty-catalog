@@ -18,7 +18,7 @@ import {
   fetchCapped,
   manifestFolderBase,
   resolveContainedRef,
-  resolveVendorFeed,
+  selectDefaultFeed,
   IMAGE_EXTENSIONS,
 } from "./lib.mjs";
 
@@ -136,25 +136,25 @@ await test("discoverMarkdownImageRefs ignores code blocks and data-src", () => {
   assert.deepEqual(new Set(discoverMarkdownImageRefs(md)), new Set(["./a.png", "./b.png"]));
 });
 
-await test("resolveVendorFeed picks the default, else the sole feed, and never guesses", () => {
+await test("selectDefaultFeed picks the default, else the sole feed, and never guesses", () => {
   // Single feed: it is the vendor feed, no flag needed.
-  assert.equal(resolveVendorFeed({ feeds: [{ id: "main", manifestRef: "a" }] }).manifestRef, "a");
+  assert.equal(selectDefaultFeed([{ id: "main", manifestRef: "a" }]).manifestRef, "a");
   // Several feeds: the default-flagged one wins, regardless of order.
   assert.equal(
-    resolveVendorFeed({ feeds: [{ id: "beta", manifestRef: "b" }, { id: "main", manifestRef: "a", default: true }] }).manifestRef,
+    selectDefaultFeed([{ id: "beta", manifestRef: "b" }, { id: "main", manifestRef: "a", default: true }]).manifestRef,
     "a",
   );
   // No feeds: nothing to vendor from.
-  assert.equal(resolveVendorFeed({}), null);
-  assert.equal(resolveVendorFeed({ feeds: [] }), null);
+  assert.equal(selectDefaultFeed(undefined), null);
+  assert.equal(selectDefaultFeed([]), null);
   // Several feeds without a default is ambiguous — loud failure, not a guess.
   assert.throws(
-    () => resolveVendorFeed({ feeds: [{ id: "main", manifestRef: "a" }, { id: "beta", manifestRef: "b" }] }),
+    () => selectDefaultFeed([{ id: "main", manifestRef: "a" }, { id: "beta", manifestRef: "b" }]),
     VendorError,
   );
   // More than one default is a contradiction — loud failure.
   assert.throws(
-    () => resolveVendorFeed({ feeds: [{ id: "main", manifestRef: "a", default: true }, { id: "beta", manifestRef: "b", default: true }] }),
+    () => selectDefaultFeed([{ id: "main", manifestRef: "a", default: true }, { id: "beta", manifestRef: "b", default: true }]),
     VendorError,
   );
 });
@@ -211,6 +211,20 @@ const server = createServer((req, res) => {
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 
+// The app repositories own their feeds now: the catalog entry points at feeds.json via feedsUrl, and
+// the generator fetches it to resolve the manifest to vendor from. Written here since the manifestRef
+// needs the bound server origin.
+writeFixture(appRepo, "apps/demo/feeds.json", JSON.stringify({
+  schemaVersion: "app-feeds.0.1",
+  appId: "com.haas.demo",
+  feeds: [{ id: "main", manifestRef: `${origin}/apps/demo/manifest.json`, default: true }],
+}));
+writeFixture(appRepo, "apps/evil/feeds.json", JSON.stringify({
+  schemaVersion: "app-feeds.0.1",
+  appId: "com.haas.evil",
+  feeds: [{ id: "main", manifestRef: `${origin}/apps/evil/manifest.json`, default: true }],
+}));
+
 await test("fetchCapped streams within the cap and aborts past it", async () => {
   const ok = await fetchCapped(`${origin}/big.bin`, 200);
   assert.equal(ok.byteLength, 100);
@@ -236,7 +250,7 @@ await test("generate --vendor vendors manifest assets and a byte-identical descr
   writeFixture(catalogHappy, "apps/com.haas.demo/entry.json", JSON.stringify({
     id: "com.haas.demo",
     name: "Demo",
-    feeds: [{ id: "main", manifestRef: `${origin}/apps/demo/manifest.json` }],
+    feedsUrl: `${origin}/apps/demo/feeds.json`,
   }));
 
   const base = "https://example.test/hosty-catalog";
@@ -265,7 +279,7 @@ await test("generate --vendor fails loudly when a description image escapes the 
   writeFixture(catalogEvil, "apps/com.haas.evil/entry.json", JSON.stringify({
     id: "com.haas.evil",
     name: "Evil",
-    feeds: [{ id: "main", manifestRef: `${origin}/apps/evil/manifest.json` }],
+    feedsUrl: `${origin}/apps/evil/feeds.json`,
   }));
 
   const result = await runGenerate(catalogEvil, "https://example.test");
