@@ -5,7 +5,7 @@
   "description": "One app's membership entry. Metadata and pointers only — the app's manifest, feeds, and artifact live in the author's own repo/registry; the catalog never contains app code.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id"],
+  "required": ["id", "license"],
   "properties": {
     "id": {
       "type": "string",
@@ -31,6 +31,13 @@
       "type": "string",
       "description": "Marketplace category.",
       "enum": ["Media", "Developer Tools", "Productivity", "Networking", "AI", "Utilities", "Other"]
+    },
+    "license": {
+      "type": "string",
+      "description": "SPDX license expression for the app's source (e.g. MIT, Apache-2.0, AGPL-3.0-only, or a compound such as \"MIT OR Apache-2.0\" or \"GPL-2.0-or-later WITH Classpath-exception-2.0\"). Storefront metadata; the authoritative license text lives in the app's own repository.",
+      "pattern": "^\\S(.*\\S)?$",
+      "minLength": 1,
+      "maxLength": 256
     },
     "tags": {
       "type": "array",

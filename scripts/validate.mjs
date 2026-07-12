@@ -57,6 +57,17 @@ function validateEntry({ id: folder, dir, entryPath }, seenIds) {
     err(folder, `category '${entry.category}' must be one of ${CATEGORIES.join(", ")}`);
   }
 
+  if (entry.license === undefined) {
+    err(folder, "license is required — declare an SPDX license expression (e.g. MIT)");
+  } else if (
+    typeof entry.license !== "string" ||
+    entry.license.length === 0 ||
+    entry.license.length > 256 ||
+    entry.license.trim() !== entry.license
+  ) {
+    err(folder, "license must be an SPDX license expression (1–256 chars, no leading/trailing whitespace)");
+  }
+
   if (entry.tags !== undefined) {
     if (!Array.isArray(entry.tags) || entry.tags.some((tag) => typeof tag !== "string" || tag.length === 0)) {
       err(folder, "tags must be an array of non-empty strings");

@@ -46,6 +46,14 @@ body:
     validations:
       required: true
   - type: input
+    id: license
+    attributes:
+      label: License (SPDX expression)
+      description: The SPDX license expression for your app's source, e.g. MIT, Apache-2.0, AGPL-3.0-only, or a compound like "MIT OR Apache-2.0". The authoritative license text stays in your own repo.
+      placeholder: MIT
+    validations:
+      required: true
+  - type: input
     id: feeds-url
     attributes:
       label: Feeds URL (feedsUrl)
