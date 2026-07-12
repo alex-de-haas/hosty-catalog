@@ -57,6 +57,10 @@ function validateEntry({ id: folder, dir, entryPath }, seenIds) {
     err(folder, `category '${entry.category}' must be one of ${CATEGORIES.join(", ")}`);
   }
 
+  if (entry.license !== undefined && (typeof entry.license !== "string" || entry.license.length === 0 || entry.license.length > 64)) {
+    err(folder, "license must be an SPDX identifier string (1–64 chars) when present");
+  }
+
   if (entry.tags !== undefined) {
     if (!Array.isArray(entry.tags) || entry.tags.some((tag) => typeof tag !== "string" || tag.length === 0)) {
       err(folder, "tags must be an array of non-empty strings");

@@ -32,6 +32,12 @@
       "description": "Marketplace category.",
       "enum": ["Media", "Developer Tools", "Productivity", "Networking", "AI", "Utilities", "Other"]
     },
+    "license": {
+      "type": "string",
+      "description": "SPDX license identifier for the app's source (e.g. MIT, Apache-2.0, AGPL-3.0-only). Storefront metadata; the authoritative license text lives in the app's own repository.",
+      "minLength": 1,
+      "maxLength": 64
+    },
     "tags": {
       "type": "array",
       "items": { "type": "string", "minLength": 1, "maxLength": 32 },

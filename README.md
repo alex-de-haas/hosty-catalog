@@ -46,7 +46,8 @@ CI generates `catalog.json` from every `apps/<id>/entry.json` — **never hand-e
 Open the [**Submit an app**](../../issues/new?template=app-submission.yml) issue, or send a PR directly:
 
 1. Create `apps/<reverse-dns-id>/entry.json`. The `id` must match your manifest's id, the reverse-DNS
-   format `^[a-z0-9][a-z0-9._-]{0,62}$`, and the folder name.
+   format `^[a-z0-9][a-z0-9._-]{0,62}$`, and the folder name. Set `license` to your app's SPDX
+   identifier (e.g. `MIT`); the authoritative license text stays in your own repo.
 2. Declare `feedsUrl` — the absolute URL of your app repository's `feeds.json` (the app owns its
    feeds; see [Feeds](#feeds-releases-without-a-catalog-pr)). Provide display assets — **preferably
    from your app repo** (see [Display assets](#display-assets)).
@@ -61,6 +62,7 @@ Minimal entry:
   "name": "Notes",
   "publisher": { "name": "Example Co", "url": "https://example.com" },
   "category": "Productivity",
+  "license": "MIT",
   "tags": ["notes"],
   "display": { "summary": "Take notes.", "icon": "assets/icon.svg" },
   "feedsUrl": "https://raw.githubusercontent.com/example/notes/main/feeds.json"
