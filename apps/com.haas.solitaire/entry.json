@@ -1,0 +1,18 @@
+{
+  "id": "com.haas.solitaire",
+  "name": "Solitaire",
+  "publisher": {
+    "name": "Haas",
+    "url": "https://github.com/alex-de-haas",
+    "email": "a.zayats@outlook.com"
+  },
+  "category": "Games",
+  "license": "MIT",
+  "tags": [
+    "cards",
+    "klondike",
+    "offline"
+  ],
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/solitaire/main/feeds.json",
+  "signerIdentity": "github.com/alex-de-haas/solitaire"
+}
