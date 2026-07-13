@@ -21,7 +21,7 @@ export const FEEDS_DOC_MAX_BYTES = 1 * 1024 * 1024;
 export const APP_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,62}$/;
 
 // Must stay in sync with entry.schema.json `category` enum.
-export const CATEGORIES = ["Media", "Developer Tools", "Productivity", "Networking", "AI", "Utilities", "Other"];
+export const CATEGORIES = ["Media", "Developer Tools", "Productivity", "Networking", "AI", "Games", "Utilities", "Other"];
 
 export function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));

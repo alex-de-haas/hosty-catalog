@@ -30,7 +30,7 @@
     "category": {
       "type": "string",
       "description": "Marketplace category.",
-      "enum": ["Media", "Developer Tools", "Productivity", "Networking", "AI", "Utilities", "Other"]
+      "enum": ["Media", "Developer Tools", "Productivity", "Networking", "AI", "Games", "Utilities", "Other"]
     },
     "license": {
       "type": "string",
