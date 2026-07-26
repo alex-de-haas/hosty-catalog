@@ -1,0 +1,22 @@
+{
+  "id": "hosty.telemetry",
+  "name": "Hosty Telemetry",
+  "publisher": {
+    "name": "Haas",
+    "url": "https://github.com/alex-de-haas",
+    "email": "a.zayats@outlook.com"
+  },
+  "category": "Developer Tools",
+  "license": "AGPL-3.0-only",
+  "tags": [
+    "observability",
+    "opentelemetry",
+    "metrics",
+    "logs",
+    "traces",
+    "first-party",
+    "system"
+  ],
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/telemetry/feeds.json",
+  "signerIdentity": "github.com/alex-de-haas/docker-host"
+}
