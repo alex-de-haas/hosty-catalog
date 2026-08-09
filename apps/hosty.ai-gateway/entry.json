@@ -1,0 +1,22 @@
+{
+  "id": "hosty.ai-gateway",
+  "name": "Hosty AI Gateway",
+  "publisher": {
+    "name": "Haas",
+    "url": "https://github.com/alex-de-haas",
+    "email": "a.zayats@outlook.com"
+  },
+  "category": "AI",
+  "license": "AGPL-3.0-only",
+  "tags": [
+    "ai",
+    "assistant",
+    "operator",
+    "claude",
+    "codex",
+    "first-party",
+    "system"
+  ],
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/ai-gateway/feeds.json",
+  "signerIdentity": "github.com/alex-de-haas/docker-host"
+}
