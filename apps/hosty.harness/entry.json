@@ -1,6 +1,6 @@
 {
-  "id": "hosty.ai-gateway",
-  "name": "Hosty AI Gateway",
+  "id": "hosty.harness",
+  "name": "Hosty Harness",
   "publisher": {
     "name": "Haas",
     "url": "https://github.com/alex-de-haas",
@@ -17,6 +17,6 @@
     "first-party",
     "system"
   ],
-  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/ai-gateway/feeds.json",
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/harness/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/docker-host"
 }
