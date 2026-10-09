@@ -1,0 +1,23 @@
+{
+  "id": "hosty.workspaces",
+  "name": "Hosty Workspaces",
+  "publisher": {
+    "name": "Haas",
+    "url": "https://github.com/alex-de-haas",
+    "email": "a.zayats@outlook.com"
+  },
+  "category": "Developer Tools",
+  "license": "AGPL-3.0-only",
+  "tags": [
+    "workspaces",
+    "git",
+    "development",
+    "pull-requests",
+    "first-party"
+  ],
+  "display": {
+    "summary": "Inspect session workspaces, repository worktrees, diffs and pull-request status. Read-only for administrators; requires Hosty Core 0.126.0 or newer."
+  },
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/workspaces/feeds.json",
+  "signerIdentity": "github.com/alex-de-haas/docker-host"
+}
