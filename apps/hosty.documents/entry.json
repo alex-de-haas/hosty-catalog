@@ -1,6 +1,6 @@
 {
-  "id": "hosty.plans",
-  "name": "Hosty Plans",
+  "id": "hosty.documents",
+  "name": "Hosty Documents",
   "publisher": {
     "name": "Haas",
     "url": "https://github.com/alex-de-haas",
@@ -9,6 +9,7 @@
   "category": "Developer Tools",
   "license": "AGPL-3.0-only",
   "tags": [
+    "documents",
     "plans",
     "workspaces",
     "development",
@@ -18,8 +19,8 @@
     "system"
   ],
   "display": {
-    "summary": "Track Markdown plans, deliverable progress and workspace changes across app repositories. Administrator-only, with a read-only MCP interface."
+    "summary": "Read current application documentation, plans and workspace progress from Git, with source validation and optional read-only MCP."
   },
-  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/plans/feeds.json",
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/documents/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/docker-host"
 }
