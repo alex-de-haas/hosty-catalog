@@ -1,0 +1,26 @@
+{
+  "id": "hosty.opus",
+  "name": "OPUS Translate",
+  "publisher": {
+    "name": "Haas",
+    "url": "https://github.com/alex-de-haas",
+    "email": "a.zayats@outlook.com"
+  },
+  "category": "AI",
+  "license": "AGPL-3.0-only",
+  "tags": [
+    "translation",
+    "opus-mt",
+    "english",
+    "russian",
+    "markdown",
+    "local",
+    "cpu",
+    "first-party"
+  ],
+  "display": {
+    "summary": "Local CPU English-to-Russian text and Markdown translation for Hosty apps. Requires Git, Node.js 24 and uv; downloads an 889 MB model on first start. Allow 4 GB of cache space."
+  },
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/opus/feeds.json",
+  "signerIdentity": "github.com/alex-de-haas/docker-host"
+}
