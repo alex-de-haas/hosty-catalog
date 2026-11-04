@@ -13,6 +13,6 @@
     "klondike",
     "offline"
   ],
-  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/solitaire/main/feeds.json",
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/solitaire/app-releases/apps/com.haas.solitaire/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/solitaire"
 }

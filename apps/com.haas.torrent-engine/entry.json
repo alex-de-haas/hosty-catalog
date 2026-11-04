@@ -15,6 +15,6 @@
     "downloads",
     "engine"
   ],
-  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/torrent-engine/main/feeds.json",
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/torrent-engine/app-releases/apps/com.haas.torrent-engine/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/torrent-engine"
 }

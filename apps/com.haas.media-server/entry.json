@@ -15,6 +15,6 @@
     "movies",
     "tv"
   ],
-  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/media-server/main/feeds.json",
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/media-server/app-releases/apps/com.haas.media-server/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/media-server"
 }
