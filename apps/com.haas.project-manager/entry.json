@@ -14,6 +14,6 @@
     "time-tracking",
     "azure-devops"
   ],
-  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/project-manager/main/feeds.json",
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/project-manager/app-releases/apps/com.haas.project-manager/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/project-manager"
 }
