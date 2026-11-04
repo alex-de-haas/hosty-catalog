@@ -20,6 +20,6 @@
   "display": {
     "summary": "A personal desktop for Hosty apps with movable windows, a dock, light and dark themes, wallpapers, and contextual assistant tools."
   },
-  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/desktop/feeds.json",
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/app-releases/apps/hosty.desktop/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/docker-host"
 }

@@ -5,9 +5,9 @@ The official marketplace catalog for [Hosty](https://github.com/alex-de-haas/doc
 It is a **discovery + trust index over existing transport** — not a new way to ship apps. Every entry
 holds **metadata and pointers only**; an app's manifest and artifact live in the author's own
 repo/registry. The catalog never contains app code. Adding an app is a reviewed pull request; new
-**releases** of an already-listed app flow through its **feeds** — named pointers at moving manifest
-refs (typically branch raw URLs) that the app owns in its own `feeds.json` — so releasing is just
-pushing to the branch, with no catalog PR. The entry only points at that file via `feedsUrl`.
+**releases** of an already-listed app flow through its **feeds** — named pointers to manifests that
+the app owns in its own `feeds.json`. Publishers advance those pointers after their artifacts are
+ready, with no catalog PR. The entry only points at that file via `feedsUrl`.
 
 Schema: `marketplace.0.2`. Zero servers — a Git repo plus GitHub Actions that publish a single
 `catalog.json` to GitHub Pages.
@@ -73,8 +73,9 @@ Minimal entry:
 ### Feeds (releases without a catalog PR)
 
 Your app **owns its feeds** in a `feeds.json` (schema `app-feeds.0.1`) in its own repository; the
-catalog entry only points at it via `feedsUrl`. A **feed** is a named pointer at your manifest at a
-**moving ref** — releasing is pushing to that ref, so the catalog is never PRed for a release. The
+catalog entry only points at it via `feedsUrl`. A **feed** is a named pointer to a manifest. Publishers
+can retain immutable release manifests and advance the pointer after verification; legacy feeds can
+still point at moving refs. Advancing a feed does not require a catalog PR. The
 manifest's own `version` is informational display metadata; Hosty detects updates by comparing
 **content digests** (manifest and artifact), so a forgotten version bump never blocks delivery.
 Declare several feeds for several tracks and mark the one quick-install should use:
@@ -92,9 +93,16 @@ Declare several feeds for several tracks and mark the one quick-install should u
 
 The feed document's `appId` must equal your manifest's id (Core rejects a mismatch at install).
 `default: true` is required only when several feeds are declared (at most one; feed order carries no
-meaning). Feed quality is the author's responsibility: a broken branch can't ship a docker image (the
-build fails, the last published image stays current), and source runtimes are gated by your own CI.
-Rolling back a bad release is `git revert` — the changed head surfaces as a normal update.
+meaning). Feed quality is the author's responsibility. A moving source ref can expose a manifest
+before its images exist, so publish complete artifacts before advertising a release. Core verifies
+release readiness independently and refuses unresolved update offers.
+
+The eight listed apps from `docker-host` use its `app-releases` metadata branch. Their `daily` feed
+advances after successful main validation and artifact publication; `stable` advances only when an
+operator promotes an exact completed release. `stable` is the fresh-install default. Promotion
+reuses the retained manifest and artifact digests without rebuilding. Other publishers keep their
+own feed names and policies, and existing installations retain their saved source until a reviewed
+source migration. See the [publisher and rollout contract](https://github.com/alex-de-haas/docker-host/blob/main/docs/features/repository-release-model/feature.md#first-publication-and-existing-installations).
 
 ## Display assets
 

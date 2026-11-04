@@ -21,6 +21,6 @@
   "display": {
     "summary": "Read current application documentation, plans and workspace progress from Git, with source validation and optional read-only MCP."
   },
-  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/documents/feeds.json",
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/app-releases/apps/hosty.documents/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/docker-host"
 }
