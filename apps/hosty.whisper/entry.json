@@ -19,6 +19,6 @@
   "display": {
     "summary": "Local CPU speech-to-text for Hosty apps and Harness dictation. Requires Git and .NET 10 SDK on the host; downloads a model on first start."
   },
-  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/main/apps/whisper/feeds.json",
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/app-releases/apps/hosty.whisper/feeds.json",
   "signerIdentity": "github.com/alex-de-haas/docker-host"
 }
