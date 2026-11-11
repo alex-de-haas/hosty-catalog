@@ -20,6 +20,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      artifact_name: ${{ steps.artifact.outputs.name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,8 +38,13 @@ jobs:
         env:
           # Deterministic project-Pages base URL: https://<owner>.github.io/<repo>.
           CATALOG_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+      - name: Select artifact name
+        id: artifact
+        # Keep the successful build's name when only the deploy job is retried.
+        run: echo "name=github-pages-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-pages-artifact@v3
         with:
+          name: ${{ steps.artifact.outputs.name }}
           path: dist
 
   deploy:
@@ -49,3 +56,5 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ needs.build.outputs.artifact_name }}
