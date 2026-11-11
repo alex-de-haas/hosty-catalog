@@ -1,0 +1,23 @@
+{
+  "id": "hosty.speech",
+  "name": "Hosty Speech",
+  "publisher": {
+    "name": "Haas",
+    "url": "https://github.com/alex-de-haas"
+  },
+  "category": "AI",
+  "license": "MIT",
+  "tags": [
+    "speech-to-text",
+    "dictation",
+    "local",
+    "multi-model",
+    "gpu",
+    "first-party"
+  ],
+  "display": {
+    "summary": "Local multi-model speech-to-text with automatic hardware acceleration. Requires Git, Node.js 22.12+ (22.x) or 24+, and npm; download a model in Settings."
+  },
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/hosty-speech/main/feeds.json",
+  "signerIdentity": "github.com/alex-de-haas/hosty-speech"
+}
