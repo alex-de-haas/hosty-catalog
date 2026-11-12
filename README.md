@@ -97,7 +97,7 @@ meaning). Feed quality is the author's responsibility. A moving source ref can e
 before its images exist, so publish complete artifacts before advertising a release. Core verifies
 release readiness independently and refuses unresolved update offers.
 
-The eight listed apps from `docker-host` use its `app-releases` metadata branch. Their `daily` feed
+The seven listed apps from `docker-host` use its `app-releases` metadata branch. Their `daily` feed
 advances after successful main validation and artifact publication; `stable` advances only when an
 operator promotes an exact completed release. `stable` is the fresh-install default. Promotion
 reuses the retained manifest and artifact digests without rebuilding. Other publishers keep their
