@@ -1,0 +1,24 @@
+{
+  "id": "hosty.claude-code-provider",
+  "name": "Claude Code Provider",
+  "publisher": {
+    "name": "Haas",
+    "url": "https://github.com/alex-de-haas",
+    "email": "a.zayats@outlook.com"
+  },
+  "category": "AI",
+  "license": "AGPL-3.0-only",
+  "tags": [
+    "ai",
+    "agent",
+    "claude",
+    "anthropic",
+    "local",
+    "first-party"
+  ],
+  "display": {
+    "summary": "Local Claude Code agent provider for Hosty apps. Requires Core 0.180.0+, Git, Node.js 24+ and npm. Add a Claude Code token or Anthropic API key; project tools remain on the host."
+  },
+  "feedsUrl": "https://raw.githubusercontent.com/alex-de-haas/docker-host/app-releases/apps/hosty.claude-code-provider/feeds.json",
+  "signerIdentity": "github.com/alex-de-haas/docker-host"
+}
